@@ -1,0 +1,13 @@
+SysLink 3
+
+User Space SysLink 2 compatibility APIs based on rpmsg sockets.
+
+APIs to be developed include:
+- MessageQ
+- ProcMgr (subset)
+
+
+Internal Modules used by MessageQ:
+- NameServer
+
+
