@@ -12,19 +12,6 @@ on an OMAP4 Panda board with messaging between:
 
 The instructions below describe building/testing for scenario #1 (Linux/BIOS).
 
-BIOS side:
-==========
-
-Repo: 	https://github.com/GAnthony/sysbios-rpmsg
-Branch:	master
-
-- See the README for tools and build instructions (substitute github repo above
-  for the omapzoom repo mentioned in the README).  The tools versions listed
-  in the Makefile are up to date.
-- Note that the MessageQCopy, srvmgr, resmgr, pm, and grcm modules are
-  not currently compatibile with the new BIOS IPC transport: TransportVirtio.
-  They build, but are not compiled into the test sample: messageq_socket.c.
-
 Linux side:
 ===========
 
@@ -46,6 +33,29 @@ User space:
 	REPO = <path to your tools repository>
 4) Build:
   % make
+
+BIOS side:
+==========
+
+Repo: 	https://github.com/ohadbc/sysbios-rpmsg.git
+Branch:	ELF
+
+- Apply the following patches from the GAnthony/syslink3 repo, etc/:
+	0001-rsc_table-publish-support-for-VIRTIO_RING_F_REMOTEP.patch
+	0002-BUILD-Added-build-of-IPC-transport-tests-and-updat.patch
+	0003-IPC-A-BIOS-MessageQ-Transport-over-VirtQueue-Virtio.patch
+	0004-README-Readme-for-syslink3-branch.patch
+	0005-IPC-Check-for-Name-Service-announcements-and-ignore.patch
+  to the ELF branch, commit ID:
+   1422861d7f42a1b7e88c42f4134b4edd08661006 BUILD: Remove build of src/utils/elfload RPRC loader and utitilies.
+
+- See the README for tools and build instructions (substitute github repo above
+  for the omapzoom repo mentioned in the README).  The tools versions listed
+  in the Makefile are up to date.
+
+- Note that the MessageQCopy, srvmgr, resmgr, pm, and grcm modules are
+  not currently compatibile with the new BIOS IPC transport: TransportVirtio.
+  They build, but are not compiled into the test sample: messageq_socket.c.
 
 Test:
 ====

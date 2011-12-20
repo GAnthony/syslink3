@@ -1,0 +1,39 @@
+From 20f208fe523c6ffb05c3a14f5632734336abaad7 Mon Sep 17 00:00:00 2001
+From: G Anthony <a0783926@ti.com>
+Date: Fri, 9 Dec 2011 15:30:11 -0800
+Subject: [PATCH 2/5] BUILD: Added build of IPC transport tests, and updated XDC tools version.
+
+Signed-off-by: G Anthony <a0783926@ti.com>
+---
+ Makefile |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 5d52d65..23a342b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -31,10 +31,10 @@
+ #
+ 
+ # Repo
+-REPO		= /usr/local
++REPO            = /db/atree/gp/repo
+ 
+ # Edit Dependency Versions:
+-XDCROOTVER	= xdctools_3_22_01_21
++XDCROOTVER      = xdctools_3_22_03_41
+ BIOSPRODVER	= bios_6_32_01_38
+ IPCPRODVER	= ipc_1_23_01_26
+ 
+@@ -47,7 +47,7 @@ export XDCROOT	= $(XDCDIST_TREE)
+ export XDCPATH	= $(BIOSPROD)/packages;$(IPCPROD)/packages;./src;
+ 
+ all:
+-	$(XDCROOT)/xdc -k -j $(j) -P `$(XDCROOT)/bin/xdcpkg src/ti |  egrep -v -e "/tests|/apps" | xargs`
++	$(XDCROOT)/xdc -k -j $(j) -P `$(XDCROOT)/bin/xdcpkg src/ti |  egrep -v -e "/apps" | xargs`
+ 
+ clean:
+ 	$(XDCROOT)/xdc clean -Pr src
+-- 
+1.6.1
+

@@ -1,0 +1,36 @@
+From a1165f0661ed1004d8b33f74d80c896f3cf83448 Mon Sep 17 00:00:00 2001
+From: G Anthony <a0783926@ti.com>
+Date: Fri, 9 Dec 2011 16:18:26 -0800
+Subject: [PATCH 4/5] README: Readme for syslink3 branch.
+
+Signed-off-by: G Anthony <a0783926@ti.com>
+---
+ README.syslink |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
+ create mode 100644 README.syslink
+
+diff --git a/README.syslink b/README.syslink
+new file mode 100644
+index 0000000..026ae5e
+--- /dev/null
++++ b/README.syslink
+@@ -0,0 +1,16 @@
++This is a prototype of a BIOS IPC transport for MessageQ, over vrings.
++
++It currently supports communication:
++- Linux A9 to BIOS Ducati sysM3 (CORE0);
++- Ducati AppM3 (CORE1) to sysM3 (CORE0).
++
++This requires Linux side MessageQ source code as found in:
++        https://github.com/GAnthony/syslink3
++
++See the README there for build/load/test instructions.
++
++Current Constraints:
++* This is *not* compatible with MessageQCopy or other rpmsg code;
++* No NameServer transport, so host Queue Index is assumed to be zero.
++* Only sends to a MessageQ endpoint on Linux side at rpmsg chnl = 1024.
++
+-- 
+1.6.1
+
