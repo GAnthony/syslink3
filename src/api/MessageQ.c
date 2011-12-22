@@ -285,15 +285,14 @@ static Void MessageQ_msgInit (MessageQ_Msg msg);
  */
 int transport_create_endpoint(int * fd, UInt16 procId, UInt16 queueIndex)
 {
-    Int     status    = MessageQ_S_SUCCESS;
+    Int     	status    = MessageQ_S_SUCCESS;
+    socklen_t 	len;
+    int         err;
+    struct sockaddr_rpmsg src_addr;
+    /* TBD: Only sysM3 supported currently: */
+    UInt16 rprocId = MultiProc_getId("SysM3");
 
-#ifdef NO_BIND
-
-    int                 err;           // Socket bind error code
-    struct sockaddr_rpmsg src_addr;  // Socket source address
-
-    /*  Create the socket to receive messages for this messageQ.
-     */
+    /*  Create the socket to receive messages for this messageQ. */
     *fd = socket(AF_RPMSG, SOCK_SEQPACKET, 0);
     if (*fd < 0) {
        status = MessageQ_E_FAIL;
@@ -305,35 +304,31 @@ int transport_create_endpoint(int * fd, UInt16 procId, UInt16 queueIndex)
     /* Now bind to the source address.   */
     memset(&src_addr, 0, sizeof(src_addr));
     src_addr.family = AF_RPMSG;
-    src_addr.vproc_id = procId - 1;
-    /* objid is a local queue Index */
+    /* We bind the remote proc ID, but local address! */
+    src_addr.vproc_id = (rprocId - 1);
     src_addr.addr  = (UInt32)queueIndex;
 
     printf ("transport_create_endpoint: created socket: "
-               "fd: %d; procID: %d; objid: %d\n",
+               "fd: %d; vproc_id: %d; src_addr: %d\n",
                 *fd, src_addr.vproc_id, src_addr.addr);
 
-    err = bind(*fd, (struct sockaddr *)&src_addr, sizeof(src_addr));
+    len = sizeof(struct sockaddr_rpmsg);
+    err = bind(*fd, (struct sockaddr *)&src_addr, len);
     if (err < 0) {
        status = MessageQ_E_FAIL;
        printf ("transport_create_endpoint: bind failed: %d, %s\n",
                   errno, strerror(errno));
+       goto exit;
     }
 
+    /* let's see what local address we got */
+    err = getsockname(*fd, (struct sockaddr *)&src_addr, &len);
+    if (err < 0) {
+	printf("getpeername failed: %s (%d)\n", strerror(errno), errno);
+    }
+    printf("Connected over rpmsg sock: %d\n\tdst vproc_id: %d, addr: %d\n",
+		     *fd, src_addr.vproc_id, src_addr.addr);
 exit:
-
-#else
-    /* TEMP: Until bind is available, we use the same socket already created
-     * for sending to sysM3.
-     */
-     if (MessageQ_module->connected[1])  {
-       *fd = MessageQ_module->sock[1];
-     }
-     else {
-       printf ("transport_create_endpoint: sysM3 not yet connected\n");
-       status = MessageQ_E_FAIL;
-     }
-#endif
 
     return(status);
 }
@@ -347,11 +342,9 @@ int transport_close_endpoint(int fd)
 {
     Int     status    = MessageQ_S_SUCCESS;
 
-#ifdef NO_BIND
     printf ("transport_close_endpoint: closing socket: %d\n", fd);
     /* Stop communication to this socket:  */
     close(fd);
-#endif
 
     return(status);
 }
@@ -386,12 +379,12 @@ int transport_get(int sock, MessageQ_Msg * ret_msg)
     if (len != sizeof(from_addr)) {
         printf("recvfrom: got bad addr len (%d)\n", len);
         status = MessageQ_E_FAIL;
-	 goto exit;
+	goto exit;
     }
     if (byte_count < 0) {
         printf("recvfrom failed: %s (%d)\n", strerror(errno), errno);
         status = MessageQ_E_FAIL;
-	 goto exit;
+	goto exit;
     }
     else {
         /* Update the allocated message size (even though this may waste space
@@ -673,6 +666,9 @@ MessageQ_create (      String            name,
      * to close during messageQ_delete()
      */
     status = transport_create_endpoint(&obj->fd, procId, queueIndex);
+    if (status < 0) {
+	goto cleanup;
+    }
 
     /* Now, to support MessageQ_unblock() functionality, create an event object.
      * Writing to this event will unblock the select() call in MessageQ_get().
@@ -685,6 +681,7 @@ MessageQ_create (      String            name,
         status = MessageQ_E_FAIL;
     }
 
+cleanup:
     pthread_mutex_unlock (&(MessageQ_module->gate));
 
     /* Cleanup if fail: */

@@ -71,7 +71,7 @@
 /*!
  *  @brief  Number of transfers to be tested.
  */
-#define  NUM_LOOPS  1000
+#define  NUM_LOOPS  100
 
 /** ============================================================================
  *  Globals
@@ -181,6 +181,11 @@ MessageQApp_execute ()
           if (status < 0) {
               printf ("Error in MessageQ_put [0x%x]\n", status);
               break;
+          }
+
+          if (i == 0) {
+		/* TEMP: Need a little delay on first socket recvfrom() call: */
+		sleep (1);
           }
 
           status = MessageQ_get(MessageQApp_messageQ, &msg, MessageQ_FOREVER);

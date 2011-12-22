@@ -46,6 +46,7 @@ Branch:	ELF
 	0003-IPC-A-BIOS-MessageQ-Transport-over-VirtQueue-Virtio.patch
 	0004-README-Readme-for-syslink3-branch.patch
 	0005-IPC-Check-for-Name-Service-announcements-and-ignore.patch
+	0006-IPC-Updated-TransportVirtio-to-support-new-socket-b.patch
   to the ELF branch, commit ID:
    1422861d7f42a1b7e88c42f4134b4edd08661006 BUILD: Remove build of src/utils/elfload RPRC loader and utitilies.
 
@@ -135,7 +136,7 @@ Sending message Id #99 to core 0
 Test complete!
 
 8) To validate the socket without MessageQ, you can build the rpmsg_proto test:
-  * See https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.2_rc1_sock/tools/rpmsg_proto.c
+  * See https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.2_rc4/tools/rpmsg_proto.c
   - This is a test program for the rpmsg socket, which assumes the BIOS firmware test_omx_sysm3.xem3 is copied into /lib/firmware/ducati-m3-core0.xem3.
   - To build:
     arm-none-linux-gnueabi-gcc rpmsg_proto.c -o rpmsg_proto
@@ -154,7 +155,7 @@ TODO:
 * Make TransportVirtio work with MessageQCopy based channels and rpmsg-omx;
 * Implement NameServer
 * Support multiple threads and process sharing.
-* Support more than one MessageQ object (once socket bind() is working).
+* Support more than one MessageQ object.
 * Move libipc.la to a shared library.
 * Optimize performance.
 
