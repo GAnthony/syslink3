@@ -29,9 +29,10 @@ User space:
 -----------
 
 1) Install the BIOS IPC product into the tools REPO directory:
-  - Public link: http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/ipc/1_23_01_26/index_FDS.html
+  - See sysbios-rpmsg repo Makefile to get correct IPC version.
+  - Public link: http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/ipc/
 2) Clone the following to get the MessageQ library and test sample:
-  * https://github.com/GAnthony/syslink3
+  * git://github.com/GAnthony/syslink3.git
 3) Update Makefile.inc to point the REPO variable to find BIOS IPC:
 	# Tools REPO:
 	REPO = <path to your tools repository>
@@ -41,22 +42,12 @@ User space:
 BIOS side:
 ==========
 
-Repo: 	https://github.com/ohadbc/sysbios-rpmsg.git
-Branch:	ELF
-
-- Apply the following patches from the GAnthony/syslink3 repo, etc/:
-	0001-rsc_table-publish-support-for-VIRTIO_RING_F_REMOTEP.patch
-	0002-BUILD-Added-build-of-IPC-transport-tests-and-updat.patch
-	0003-IPC-A-BIOS-MessageQ-Transport-over-VirtQueue-Virtio.patch
-	0004-README-Readme-for-syslink3-branch.patch
-	0005-IPC-Check-for-Name-Service-announcements-and-ignore.patch
-	0006-IPC-Updated-TransportVirtio-to-support-new-socket-b.patch
-  to the ELF branch, commit ID:
-   1422861d7f42a1b7e88c42f4134b4edd08661006 BUILD: Remove build of src/utils/elfload RPRC loader and utitilies.
+Repo: 	git://github.com/GAnthony/sysbios-rpmsg.git
+Branch:	syslink3
 
 - See the README for tools and build instructions (substitute github repo above
-  for the omapzoom repo mentioned in the README).  The tools versions listed
-  in the Makefile are up to date.
+  for the omapzoom repo mentioned in the README).  Use the tools versions listed
+  in the Makefile.
 
 - Note that the MessageQCopy, srvmgr, resmgr, pm, and grcm modules are
   not currently compatibile with the new BIOS IPC transport: TransportVirtio.
