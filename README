@@ -21,9 +21,8 @@ Kernel space:
 - Clone the upstream-rpmsg repo, and checkout the rpmsg_3.2_rc4 branch:
   * https://github.com/ohadbc/upstream-rpmsg/tree/rpmsg_3.2_rc4:
 
-- This work was tested on commit:  
+- Reset to commit:  
   8838cf1e77c6593e8be95fd46f258257a28ff2fe connect on inbound
-
 
 User space:
 -----------
