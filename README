@@ -18,11 +18,15 @@ Linux side:
 Kernel space:
 ------------
 
-- Clone the upstream-rpmsg repo, and checkout the rpmsg_3.2_rc4 branch:
-  * https://github.com/ohadbc/upstream-rpmsg/tree/rpmsg_3.2_rc4:
+- Clone the upstream-rpmsg repo, and checkout the rpmsg_3.3_rc1 branch:
+  * https://github.com/ohadbc/upstream-rpmsg/tree/rpmsg_3.3_rc1:
 
-- Reset to commit:  
-  8838cf1e77c6593e8be95fd46f258257a28ff2fe connect on inbound
+- This was tested using commit:  
+https://github.com/ohadbc/upstream-rpmsg/commit/aa4dbbc00ce240f11109f3265c1674bc33af4c0f
+  * Later commits not guarranteed to work.
+
+- The etc/rpmsg_3.3_rc1.config file was used for Panda board during testing.
+  * Ensure:  CONFIG_OMAP_MBOX_FWK=y
 
 User space:
 -----------
@@ -130,7 +134,7 @@ Sending message Id #99 to core 0
 Test complete!
 
 8) To validate the socket without MessageQ, you can build the rpmsg_proto test:
-  * See https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.2_rc4/tools/rpmsg_proto.c
+  * See https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.3_rc1/tools/rpmsg_proto.c
   - This is a test program for the rpmsg socket, which assumes the BIOS firmware test_omx_sysm3.xem3 is copied into /lib/firmware/ducati-m3-core0.xem3.
   - To build:
     arm-none-linux-gnueabi-gcc rpmsg_proto.c -o rpmsg_proto
@@ -140,8 +144,8 @@ Documentation:
 ==============
 
 * http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/syslink/latest/docs/html/index.html
-* https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.2_rc4/Documentation/rpmsg.txt
-* https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.2_rc4/Documentation/virtual/virtio-spec.txt
+* https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.3_rc1/Documentation/rpmsg.txt
+* https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.3_rc1/Documentation/virtual/virtio-spec.txt
 * http://www.omappedia.org/wiki/Syslink_3
 
 TODO:
