@@ -140,6 +140,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/param.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <errno.h>
@@ -149,16 +150,18 @@
 #include <unistd.h>
 #include <assert.h>
 
-/* Standard	headers */
-#include <Std.h>
-
 /* SysLink Socket Protocol	Family */
 #include <net/rpmsg.h>
+
+/* Socket utils: */
+#include "socketfxns.h"
 
 /* =============================================================================
  * Macros/Constants
  * =============================================================================
  */
+
+
 /*!
  *  @brief  Name of the reserved NameServer used for MessageQ.
  */
@@ -178,7 +181,7 @@
 #define TRACEMASK     0x1000
 
 /* Define BENCHMARK to quiet key MessageQ APIs: */
-#define BENCHMARK
+//#define BENCHMARK
 
 /* =============================================================================
  * Structures & Enums
@@ -225,7 +228,7 @@ typedef struct MessageQ_Object_tag {
     /* Unique id */
     Ptr                     nsKey;
     /* NameServer key */
-    Int                     fd;
+    Int                     fd[MultiProc_MAXPROCESSORS];
     /* File Descriptor to block on messages from remote processors. */
     Int                     unblock_fd;
     /* Write this fd to unblock the select() call in MessageQ _get() */
@@ -273,24 +276,20 @@ UInt16 _MessageQ_grow (MessageQ_Object * obj);
 static Void MessageQ_msgInit (MessageQ_Msg msg);
 
 
-/* =============================================================================
+/*
+ * =============================================================================
  * Transport: Fxns kept here until clients realize need for a transport layer
  * =============================================================================
  */
-
 /*
  * ======== transport_create_endpoint ========
  *
  * Create a communication endpoint to receive messages.
  */
-int transport_create_endpoint(int * fd, UInt16 procId, UInt16 queueIndex)
+int transport_create_endpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
 {
     Int     	status    = MessageQ_S_SUCCESS;
-    socklen_t 	len;
     int         err;
-    struct sockaddr_rpmsg src_addr;
-    /* TBD: Only sysM3 supported currently: */
-    UInt16 rprocId = MultiProc_getId("SysM3");
 
     /*  Create the socket to receive messages for this messageQ. */
     *fd = socket(AF_RPMSG, SOCK_SEQPACKET, 0);
@@ -301,33 +300,15 @@ int transport_create_endpoint(int * fd, UInt16 procId, UInt16 queueIndex)
        goto exit;
     }
 
-    /* Now bind to the source address.   */
-    memset(&src_addr, 0, sizeof(src_addr));
-    src_addr.family = AF_RPMSG;
-    /* We bind the remote proc ID, but local address! */
-    src_addr.vproc_id = (rprocId - 1);
-    src_addr.addr  = (UInt32)queueIndex;
+    printf ("transport_create_endpoint: created socket: fd: %d\n", *fd);
 
-    printf ("transport_create_endpoint: created socket: "
-               "fd: %d; vproc_id: %d; src_addr: %d\n",
-                *fd, src_addr.vproc_id, src_addr.addr);
-
-    len = sizeof(struct sockaddr_rpmsg);
-    err = bind(*fd, (struct sockaddr *)&src_addr, len);
+    err = socket_bind_addr(*fd, rprocId, (UInt32)queueIndex);
     if (err < 0) {
        status = MessageQ_E_FAIL;
        printf ("transport_create_endpoint: bind failed: %d, %s\n",
                   errno, strerror(errno));
-       goto exit;
     }
 
-    /* let's see what local address we got */
-    err = getsockname(*fd, (struct sockaddr *)&src_addr, &len);
-    if (err < 0) {
-	printf("getpeername failed: %s (%d)\n", strerror(errno), errno);
-    }
-    printf("Connected over rpmsg sock: %d\n\tdst vproc_id: %d, addr: %d\n",
-		     *fd, src_addr.vproc_id, src_addr.addr);
 exit:
 
     return(status);
@@ -481,9 +462,7 @@ Int
 MessageQ_setup (const MessageQ_Config * cfg)
 {
     Int                    status = MessageQ_S_SUCCESS;
-#ifdef NO_NAMESERVER
     NameServer_Params      params;
-#endif
     int                    i;
 
     /* TBD: Protect from multiple threads. */
@@ -496,17 +475,14 @@ MessageQ_setup (const MessageQ_Config * cfg)
         goto exit;
     }
 
-#ifdef NO_NAMESERVER
     /* Initialize the parameters */
     NameServer_Params_init (&params);
     params.maxValueLen = sizeof (UInt32);
     params.maxNameLen  = cfg->maxNameLen;
 
     /* Create the nameserver for modules */
-    MessageQ_module->nameServer = NameServer_create (
-                                MessageQ_NAMESERVER,
+    MessageQ_module->nameServer = NameServer_create (MessageQ_NAMESERVER,
                                 &params);
-#endif
 
     /* Create a default local gate. */
     pthread_mutex_init (&(MessageQ_module->gate), NULL);
@@ -519,7 +495,7 @@ MessageQ_setup (const MessageQ_Config * cfg)
 
     MessageQ_module->numQueues = cfg->maxRuntimeEntries;
     MessageQ_module->queues = (MessageQ_Handle *)
-    calloc (1, sizeof (MessageQ_Handle) * MessageQ_module->numQueues);
+        calloc (1, sizeof (MessageQ_Handle) * MessageQ_module->numQueues);
 
     /* Clear sockets array. */
     for (i = 0; i < MultiProc_MAXPROCESSORS; i++) {
@@ -556,7 +532,6 @@ MessageQ_destroy (void)
     /* Decrease the refCount */
     MessageQ_module->refCount--;
 
-#ifdef NO_NAMESERVER
     if (MessageQ_module->nameServer != NULL) {
         /* Delete the nameserver for modules */
         tmpStatus = NameServer_delete (&MessageQ_module->nameServer);
@@ -564,7 +539,6 @@ MessageQ_destroy (void)
               status = tmpStatus;
         }
     }
-#endif
 
     /*
      * Since MessageQ_module->gate was not allocated, no need to delete.
@@ -618,6 +592,7 @@ MessageQ_create (      String            name,
     UInt16              queueIndex = 0u;
     UInt16              procId;
     int                 i;
+    UInt16              rprocId;
 
     /* Create the generic obj */
     obj = (MessageQ_Object *) calloc (1, sizeof (MessageQ_Object));
@@ -626,7 +601,8 @@ MessageQ_create (      String            name,
     count = MessageQ_module->numQueues;
 
     /* Search the dynamic array for any holes */
-    for (i = 0; i < count ; i++) {
+    /* We start from index == 1, as 0 is reserved for binding NameServer: */
+    for (i = 1; i < count ; i++) {
         if (MessageQ_module->queues [i] == NULL) {
               MessageQ_module->queues [i] = (MessageQ_Handle) obj;
               queueIndex = i;
@@ -652,22 +628,29 @@ MessageQ_create (      String            name,
     obj->queue =   (MessageQ_QueueId)
                    (((UInt32) (procId) << 16) | queueIndex);
 
-#ifdef NO_NAMESERVER
     if (name != NULL) {
        obj->nsKey = NameServer_addUInt32 (
                                   MessageQ_module->nameServer,
                                   name,
                                   obj->queue);
     }
-#endif
 
-    /* Create a communication endpoint (typically a socket), and return the
-     * file descriptor as target for messageQ_put() calls, and as descriptor
-     * to close during messageQ_delete()
+    /* Create a set of communication endpoints (one per each remote proc),
+     * and return the socket as target for MessageQ_put() calls, and as
+     * a file descriptor to close during MessageQ_delete().
      */
-    status = transport_create_endpoint(&obj->fd, procId, queueIndex);
-    if (status < 0) {
-	goto cleanup;
+    for (rprocId = 0; rprocId < MultiProc_getNumProcessors(); rprocId++) {
+        if (procId == rprocId) {
+            /* Skip creating an endpoint for ourself. */
+            continue;
+        }
+        printf ("MessageQ_create: creating endpoint for: %s, rprocId: %d\n",
+                name, rprocId);
+        status = transport_create_endpoint(&obj->fd[rprocId], rprocId,
+                                           queueIndex);
+        if (status < 0) {
+	    goto cleanup;
+        }
     }
 
     /* Now, to support MessageQ_unblock() functionality, create an event object.
@@ -702,6 +685,7 @@ MessageQ_delete (MessageQ_Handle * handlePtr)
 {
     Int               status    = MessageQ_S_SUCCESS;
     MessageQ_Object * obj       = NULL;
+    UInt16            rprocId;
 
     obj = (MessageQ_Object *) (*handlePtr);
 
@@ -709,9 +693,12 @@ MessageQ_delete (MessageQ_Handle * handlePtr)
     close(obj->unblock_fd);
 
     /* Close the communication endpoint: */
-    status = transport_close_endpoint(obj->fd);
+    for (rprocId = 0; rprocId < MultiProc_getNumProcessors(); rprocId++) {
+        if (obj->fd[rprocId] != Transport_INVALIDSOCKET) {
+            status = transport_close_endpoint(obj->fd[rprocId]);
+        }
+    }
 
-#ifdef NO_NAMESERVER
     if (obj->nsKey != NULL) {
           /* Remove from the name server */
           status = NameServer_removeEntry (MessageQ_module->nameServer,
@@ -724,7 +711,6 @@ MessageQ_delete (MessageQ_Handle * handlePtr)
               status = MessageQ_S_SUCCESS;
           }
     }
-#endif
 
     pthread_mutex_lock (&(MessageQ_module->gate));
 
@@ -754,18 +740,10 @@ MessageQ_open (String name, MessageQ_QueueId * queueId)
 {
     Int status = MessageQ_S_SUCCESS;
 
-#ifdef NO_NAMESERVER
     status = NameServer_getUInt32 (MessageQ_module->nameServer,
                                      name,
                                      queueId,
                                      NULL);
-#else
-    // TEMP: Hack until NameServer implemented.
-    UInt16     procId = MultiProc_getId("SysM3");
-    UInt16     queueIndex = 0;
-
-    *queueId  = (queueIndex & 0x0000FFFF) | (procId << 16);
-#endif
 
     if (status == NameServer_E_NOTFOUND) {
           /* Set return queue ID to invalid. */
@@ -781,7 +759,12 @@ MessageQ_open (String name, MessageQ_QueueId * queueId)
           /* Set return queue ID to invalid. */
           *queueId = MessageQ_INVALIDMESSAGEQ;
           /* Override with a MessageQ status code. */
-          status = MessageQ_E_FAIL;
+          if (status == NameServer_E_TIMEOUT) {
+              status = MessageQ_E_TIMEOUT;
+          }
+          else {
+              status = MessageQ_E_FAIL;
+          }
     }
 
     return status;
@@ -835,8 +818,6 @@ MessageQ_put (MessageQ_QueueId queueId,
  * We use the socket stored in the messageQ object via a previous call to
  * MessageQ_create().
  *
- * TBD: To support multiple transports, this may need to select on a set of
- *  sockets.
  */
 Int
 MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
@@ -849,10 +830,18 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
     fd_set  rfds;
     struct  timeval tv;
     Ptr     timeval_ptr;
+    UInt16  rprocId;
+    int     maxfd = 0;
 
     /* Wait (with timeout) and retreive message from socket: */
     FD_ZERO(&rfds);
-    FD_SET(obj->fd, &rfds);
+    for (rprocId = 0; rprocId < MultiProc_getNumProcessors(); rprocId++) {
+        if (rprocId == MultiProc_self()) {
+            continue;
+        }
+        maxfd = MAX(maxfd, obj->fd[rprocId]);
+        FD_SET(obj->fd[rprocId], &rfds);
+    }
 
     /* Wait also on the event fd, which may be written by MessageQ_unblock(): */
     FD_SET(obj->unblock_fd, &rfds);
@@ -867,7 +856,7 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
        timeval_ptr = &tv;
     }
     /* Add one to last fd created: */
-    nfds = obj->unblock_fd + 1;
+    nfds = MAX(maxfd, obj->unblock_fd) + 1;
 
     retval = select(nfds, &rfds, NULL, NULL, timeval_ptr);
     if (retval)  {
@@ -883,12 +872,20 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
              *msg = NULL;
              status = MessageQ_E_UNBLOCKED;
        }
-       else if (FD_ISSET(obj->fd, &rfds)) {
-            /* Our transport's fd was signalled: Get the message: */
-            tmpStatus = transport_get(obj->fd, msg);
-            if (tmpStatus < 0) {
-                printf ("MessageQ_get: tranposrtshm_get failed.");
-                status = MessageQ_E_FAIL;
+       else {
+            for (rprocId = 0; rprocId < MultiProc_getNumProcessors();
+                 rprocId++) {
+                if (rprocId == MultiProc_self()) {
+                    continue;
+                }
+                if (FD_ISSET(obj->fd[rprocId], &rfds)) {
+                    /* Our transport's fd was signalled: Get the message: */
+                    tmpStatus = transport_get(obj->fd[rprocId], msg);
+                    if (tmpStatus < 0) {
+                        printf ("MessageQ_get: tranposrtshm_get failed.");
+                        status = MessageQ_E_FAIL;
+                    }
+                }
             }
        }
     }
@@ -1066,41 +1063,6 @@ MessageQ_sharedMemReq (Ptr sharedAddr)
     return (memReq);
 }
 
-Int connect_socket(int sock, UInt16 procId)
-{
-	int                   err;
-	struct sockaddr_rpmsg src_addr, dst_addr;
-	socklen_t             len;
-
-	/* connect to remote service */
-	memset(&dst_addr, 0, sizeof(dst_addr));
-	dst_addr.family     = AF_RPMSG;
-	dst_addr.vproc_id   = procId - 1;
-	dst_addr.addr       = MESSAGEQ_RPMSG_PORT;
-
-	len = sizeof(struct sockaddr_rpmsg);
-	err = connect(sock, (struct sockaddr *)&dst_addr, len);
-	if (err < 0) {
-		printf("connect failed: %s (%d)\n", strerror(errno), errno);
-		return (-1);
-	}
-
-	/* let's see what local address we got */
-	err = getsockname(sock, (struct sockaddr *)&src_addr, &len);
-	if (err < 0) {
-		printf("getpeername failed: %s (%d)\n", strerror(errno), errno);
-		return (-1);
-	}
-
-	printf("Connected over rpmsg sock: %d\n\tdst vproc_id: %d, addr: %d\n",
-		     sock, dst_addr.vproc_id, dst_addr.addr);
-
-	printf("\trpmsg src vproc_id: %d, addr: %d\n",
-			src_addr.vproc_id, src_addr.addr);
-
-       return(0);
-}
-
 
 /*
  *  Create a socket for this remote proc, and attempt to connect.
@@ -1135,9 +1097,10 @@ MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
                        errno, strerror(errno));
         }
         else  {
+            printf ("MessageQ_attach: created send socket: %d\n", sock);
             MessageQ_module->sock[remoteProcId] = sock;
             /* Attempt to connect: */
-            if (connect_socket(sock, remoteProcId) == 0)  {
+            if (connect_socket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT) == 0) {
                  MessageQ_module->connected[remoteProcId] = TRUE;
             }
         }
@@ -1161,6 +1124,7 @@ Int
 MessageQ_detach (UInt16 remoteProcId)
 {
     Int status = MessageQ_S_SUCCESS;
+    int sock;
 
     if (remoteProcId >= MultiProc_MAXPROCESSORS) {
         status = MessageQ_E_INVALIDPROCID;
@@ -1169,12 +1133,14 @@ MessageQ_detach (UInt16 remoteProcId)
 
     pthread_mutex_lock (&(MessageQ_module->gate));
 
-    if (close (MessageQ_module->sock[remoteProcId]))  {
+    sock = MessageQ_module->sock[remoteProcId];
+    if (close (sock)) {
         status = MessageQ_E_OSFAILURE;
         printf ("MessageQ_detach: close failed: %d, %s\n",
                        errno, strerror(errno));
     }
     else {
+       printf ("MessageQ_detach: closed socket: %d\n", sock);
        MessageQ_module->sock[remoteProcId] = Transport_INVALIDSOCKET;
     }
 
@@ -1240,6 +1206,7 @@ Void
 MessageQ_msgInit (MessageQ_Msg msg)
 {
 
+    msg->reserved0 = 0;  /* We set this to distinguish from NameServerMsg */
     msg->replyId = (UInt16) MessageQ_INVALIDMESSAGEQ;
     msg->msgId   = MessageQ_INVALIDMSGID;
     msg->dstId   = (UInt16) MessageQ_INVALIDMESSAGEQ;

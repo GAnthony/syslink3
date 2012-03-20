@@ -49,17 +49,21 @@
 #include <Std.h>
 
 /* Module level headers */
+#include <ti/ipc/NameServer.h>
 #include <ti/ipc/MessageQ.h>
 #include <ti/ipc/MultiProc.h>
 
+/* For Backplane IPC startup/shutdown stuff: */
+#include <_MultiProc.h>
 #include <_MessageQ.h>
+#include <_NameServer.h>
 
 /* App defines */
 #define MSGSIZE                     64u
 /* Must match on remote proc side: */
 #define HEAPID                      0u
 
-#define DUCATI_CORE0_MESSAGEQNAME   "CORE0"
+#define DUCATI_CORE0_MESSAGEQNAME   "SLAVE"
 #define ARM_MESSAGEQNAME            "HOST"
 
 /** ============================================================================
@@ -87,14 +91,25 @@ UInt16                         MessageQApp_procId;
 Int
 MessageQApp_startup ()
 {
+    /* This must be setup to match BIOS side MultiProc configuration for the
+     * given platform!
+     */
+    MultiProc_Config MultiProc_cfg =  {
+       .numProcessors = 2,
+       .nameList[0] = "HOST",
+       .nameList[1] = "SysM3",
+       .id = 0,                 /* The host is always zero */
+    };
     Int32             status = 0;
     MessageQ_Config   cfg;
 
     printf ("Entered MessageQApp_startup\n");
 
-    /* SysLink 2 Backplane stuff: Also need NameServer and MultiProc config. */
-    MessageQ_getConfig (&cfg);
-    MessageQ_setup (&cfg);
+    /* SysLink Backplane stuff:  */
+    MultiProc_setup(&MultiProc_cfg);
+    NameServer_setup();
+    MessageQ_getConfig(&cfg);
+    MessageQ_setup(&cfg);
     MessageQApp_procId = MultiProc_getId("SysM3");
     status = MessageQ_attach (MessageQApp_procId, NULL);
 
@@ -122,14 +137,15 @@ MessageQApp_execute ()
         goto exit;
     }
     else {
-        printf ("Local messageQ id: 0x%x\n",
+        printf ("Local MessageQId: 0x%x\n",
             MessageQ_getQueueId(MessageQApp_messageQ));
     }
 
-    /* Wait until remote side has it's messageQ created before we send: */
+    /* Poll until remote side has it's messageQ created before we send: */
     do {
         status = MessageQ_open (DUCATI_CORE0_MESSAGEQNAME,
                        &MessageQApp_queueId);
+	sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
         printf ("Error in MessageQ_open [0x%x]\n", status);
@@ -159,10 +175,12 @@ MessageQApp_execute ()
               break;
           }
 
-          if (i == 0) {
+#if 0
+          if (i == 1) {
 		/* TEMP: Need a little delay on first socket recvfrom() call: */
 		sleep (1);
           }
+#endif
 
           status = MessageQ_get(MessageQApp_messageQ, &msg, MessageQ_FOREVER);
           if (status < 0) {
@@ -212,9 +230,11 @@ MessageQApp_shutdown ()
 
     printf ("Entered MessageQApp_shutdown()\n");
 
-    /* SysLink 2 Backplane stuff: move to ???? */
+    /* SysLink Backplane stuff: */
     status = MessageQ_detach (MessageQApp_procId);
     MessageQ_destroy ();
+    NameServer_destroy();
+    MultiProc_destroy();
 
     printf ("Leave MessageQApp_shutdown()\n");
 

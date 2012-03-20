@@ -60,7 +60,7 @@
 /* Must match on remote proc side: */
 #define HEAPID                      0u
 
-#define DUCATI_CORE0_MESSAGEQNAME   "CORE0"
+#define DUCATI_CORE0_MESSAGEQNAME   "SLAVE"
 #define ARM_MESSAGEQNAME            "HOST"
 
 /** ============================================================================

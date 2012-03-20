@@ -32,7 +32,7 @@
 
 include	../../Makefile.inc
 
-OBJ	= MessageQ.o MultiProc.o
+OBJ	= MessageQ.o MultiProc.o NameServer.o socketfxns.o
 
 libipc.a: $(OBJ)
 	$(AR) -rcs libipc.a $(OBJ)

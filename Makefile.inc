@@ -41,7 +41,7 @@ CROSS  := arm-none-linux-gnueabi-
 GCC    := $(CROSS)gcc
 AR     := $(CROSS)ar
 RANLIB := $(CROSS)ranlib
-CFLAGS := -Wall -I../../include -I$(IPCPROD)/packages
+CFLAGS := -Wall -I../../include -I$(IPCPROD)/packages -D_GNU_SOURCE
 LFLAGS := -lm -lpthread -L../api -lipc
 
 %.o: %.c

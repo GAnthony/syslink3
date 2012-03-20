@@ -43,22 +43,37 @@
 #include <ti/ipc/MultiProc.h>
 #include <_MultiProc.h>
 
-/* This needs to be replaced with a configuration API */
-static MultiProc_Config cfg =  {
-       .numProcessors = 4,
-       .nameList[0] = "HOST",
-       .nameList[1] = "SysM3",
-       .nameList[2] = "AppM3",
-       .nameList[3] = "DSP",
-       .id = 0,                 /* The host is always zero */
-};
 
+static MultiProc_Config MultiProc_cfg;
 
 /*
  *************************************************************************
  *                       Common Header Functions
  *************************************************************************
  */
+
+/* Setup the MultiProc module. */
+Int MultiProc_setup (MultiProc_Config * cfg)
+{
+    Int status = MultiProc_S_SUCCESS;
+
+    if (cfg == NULL) {
+        status = MultiProc_E_FAIL;
+    }
+    else {
+        memcpy (&MultiProc_cfg, cfg, sizeof (MultiProc_Config));
+    }
+
+    return (status);
+}
+
+/* Destroy the MultiProc module. */
+Int MultiProc_destroy (Void)
+{
+    Int status = MultiProc_S_SUCCESS;
+
+    return (status);
+}
 
 /*
  *  ======== MultiProc_getId ========
@@ -71,9 +86,9 @@ UInt16 MultiProc_getId(String name)
     assert(name != NULL);
 
     id = MultiProc_INVALIDID;
-    for (i = 0; i < cfg.numProcessors; i++) {
-        if ((cfg.nameList[i] != NULL) &&
-                (strcmp(name, cfg.nameList[i]) == 0)) {
+    for (i = 0; i < MultiProc_cfg.numProcessors; i++) {
+        if ((MultiProc_cfg.nameList[i] != NULL) &&
+                (strcmp(name, MultiProc_cfg.nameList[i]) == 0)) {
             id = i;
         }
     }
@@ -85,9 +100,9 @@ UInt16 MultiProc_getId(String name)
  */
 String MultiProc_getName(UInt16 id)
 {
-    assert(id < cfg.numProcessors);
+    assert(id < MultiProc_cfg.numProcessors);
 
-    return (cfg.nameList[id]);
+    return (MultiProc_cfg.nameList[id]);
 }
 
 /*
@@ -95,7 +110,7 @@ String MultiProc_getName(UInt16 id)
  */
 UInt16 MultiProc_getNumProcessors()
 {
-    return (cfg.numProcessors);
+    return (MultiProc_cfg.numProcessors);
 }
 
 
@@ -104,7 +119,7 @@ UInt16 MultiProc_getNumProcessors()
  */
 UInt16 MultiProc_self()
 {
-    return (cfg.id);
+    return (MultiProc_cfg.id);
 }
 
 /*
@@ -113,7 +128,7 @@ UInt16 MultiProc_self()
 Int MultiProc_setLocalId(UInt16 id)
 {
     /* id must be less than the number of processors */
-    assert(id < cfg.numProcessors);
+    assert(id < MultiProc_cfg.numProcessors);
 
     /*
      *  Check the following
@@ -121,10 +136,10 @@ Int MultiProc_setLocalId(UInt16 id)
      *     To call setLocalId, the id must have been set to invalid.
      *  2. Make sure the call is made before module startup
      */
-    if ((cfg.id == MultiProc_INVALIDID) /* &&
+    if ((MultiProc_cfg.id == MultiProc_INVALIDID) /* &&
         (Startup_rtsDone() == FALSE) */  )  {
         /* It is ok to set the id */
-        cfg.id = id;
+        MultiProc_cfg.id = id;
         return (MultiProc_S_SUCCESS);
     }
 
