@@ -37,6 +37,8 @@
  *  ============================================================================
  */
 
+#define USE_LAD
+
 /* Standard headers */
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -57,6 +59,10 @@
 #include <_MultiProc.h>
 #include <_MessageQ.h>
 #include <_NameServer.h>
+
+#ifdef USE_LAD
+#include <ladclient.h>
+#endif
 
 /* App defines */
 #define MSGSIZE                     64u
@@ -84,6 +90,11 @@ MessageQ_Handle                MessageQApp_messageQ;
 MessageQ_QueueId               MessageQApp_queueId = MessageQ_INVALIDMESSAGEQ;
 UInt16                         MessageQApp_procId;
 
+#ifdef USE_LAD
+LAD_ClientHandle ladHandle;
+LAD_Status ladStatus;
+#endif
+
 /** ============================================================================
  *  Functions
  *  ============================================================================
@@ -104,6 +115,17 @@ MessageQApp_startup ()
     MessageQ_Config   cfg;
 
     printf ("Entered MessageQApp_startup\n");
+
+#ifdef USE_LAD
+    ladStatus = LAD_connect(&ladHandle);
+    if (ladStatus != LAD_SUCCESS) {
+        printf("LAD_connect() failed: %d\n", ladStatus);
+        return -1;
+    }
+    else {
+        printf("LAD_connect() succeeded: ladHandle=%d\n", ladHandle);
+    }
+#endif
 
     /* SysLink Backplane stuff:  */
     MultiProc_setup(&MultiProc_cfg);
@@ -235,6 +257,17 @@ MessageQApp_shutdown ()
     MessageQ_destroy ();
     NameServer_destroy();
     MultiProc_destroy();
+
+#ifdef USE_LAD
+    ladStatus = LAD_disconnect(ladHandle);
+    if (ladStatus != LAD_SUCCESS) {
+        printf("LAD_disconnect() failed: %d\n", ladStatus);
+        return -1;
+    }
+    else {
+        printf("LAD_disconnect() succeeded\n");
+    }
+#endif
 
     printf ("Leave MessageQApp_shutdown()\n");
 

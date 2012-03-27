@@ -30,19 +30,15 @@
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-all: lib samples daemon
+include ../../Makefile.inc
 
-lib:
-	@cd src/api; make
+all: lad
 
-samples:
-	@cd src/samples; make
+NameServer.o: NameServer.c
 
-daemon:
-	@cd src/daemon; make
+lad: lad.c NameServer.o ../api/libipc.a
+	$(GCC) $(CFLAGS) $< -o $@ NameServer.o $(LFLAGS)
 
 clean:
-	@cd src/api; make clean
-	@cd src/samples; make clean
-	@cd src/daemon; make clean
+	@rm -f lad
 

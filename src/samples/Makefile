@@ -32,7 +32,7 @@
 
 include ../../Makefile.inc
 
-all: MessageQApp MessageQBench
+all: MessageQApp MessageQBench NameServerApp
 
 MessageQApp: MessageQApp.c ../api/libipc.a
 	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
@@ -40,6 +40,9 @@ MessageQApp: MessageQApp.c ../api/libipc.a
 MessageQBench: MessageQBench.c ../api/libipc.a
 	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS) -lrt
 
+NameServerApp: NameServerApp.c ../api/libipc.a
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
+
 clean:
-	@rm -f MessageQApp MessageQBench
+	@rm -f MessageQApp MessageQBench NameServerApp
 
