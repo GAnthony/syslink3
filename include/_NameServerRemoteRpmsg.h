@@ -38,7 +38,7 @@
 #define MAXNAMEINCHAR	80
 #define NAMEARRAYSZIE   (((MAXNAMEINCHAR - 1) / sizeof(Bits32)) + 1)
 
-#define NAMESERVER_GET_TIMEOUT  10  /* Seconds */
+#define NAMESERVER_GET_TIMEOUT  120 /* Seconds */
 
 #define NAMESERVER_MSG_TOKEN   0x5678abcd
 
