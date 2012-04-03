@@ -640,6 +640,7 @@ MessageQ_create (      String            name,
      * a file descriptor to close during MessageQ_delete().
      */
     for (rprocId = 0; rprocId < MultiProc_getNumProcessors(); rprocId++) {
+        obj->fd[rprocId] = Transport_INVALIDSOCKET;
         if (procId == rprocId) {
             /* Skip creating an endpoint for ourself. */
             continue;
