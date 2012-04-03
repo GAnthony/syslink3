@@ -38,12 +38,15 @@
  */
 
 /* Standard headers */
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
+#include <stdlib.h>
 
 /* SysLink Standard Header: */
 #include <Std.h>
@@ -67,26 +70,27 @@
 /* Must match on remote proc side: */
 #define HEAPID                      0u
 
-#define DUCATI_CORE0_MESSAGEQNAME   "SLAVE"
-#define ARM_MESSAGEQNAME            "HOST"
+#define SLAVE_MESSAGEQNAME          "SLAVE"
+#define HOST_MESSAGEQNAME           "HOST"
 
 /** ============================================================================
  *  Macros and types
  *  ============================================================================
  */
 
-/*!
- *  @brief  Number of transfers to be tested.
- */
-#define  NUM_LOOPS  100
+#define  NUM_LOOPS   10
+#define  NUM_THREADS 1
 
 /** ============================================================================
  *  Globals
  *  ============================================================================
  */
-MessageQ_Handle                MessageQApp_messageQ;
-MessageQ_QueueId               MessageQApp_queueId = MessageQ_INVALIDMESSAGEQ;
 UInt16                         MessageQApp_procId;
+
+struct thread_info {    /* Used as argument to thread_start() */
+    pthread_t thread_id;        /* ID returned by pthread_create() */
+    int       thread_num;       /* Application-defined thread # */
+};
 
 #ifdef USE_LAD
 LAD_ClientHandle ladHandle;
@@ -141,32 +145,40 @@ MessageQApp_startup ()
 }
 
 
-Int
-MessageQApp_execute ()
+static void * ping_thread(void *arg)
 {
+    int                      thread_num = *(int *)arg;
     Int32                    status     = 0;
     MessageQ_Msg             msg        = NULL;
     MessageQ_Params          msgParams;
     UInt16                   i;
+    MessageQ_Handle          handle;
+    MessageQ_QueueId         queueId = MessageQ_INVALIDMESSAGEQ;
 
-    printf ("Entered MessageQApp_execute\n");
+    char             remoteQueueName[64];
+    char             hostQueueName[64];
+
+    sprintf(remoteQueueName, "%s_%d", SLAVE_MESSAGEQNAME, thread_num );
+    sprintf(hostQueueName,   "%s_%d", HOST_MESSAGEQNAME,  thread_num );
+
+    printf ("thread: %d\n", thread_num);
 
     /* Create the local Message Queue for receiving. */
     MessageQ_Params_init (&msgParams);
-    MessageQApp_messageQ = MessageQ_create (ARM_MESSAGEQNAME, &msgParams);
-    if (MessageQApp_messageQ == NULL) {
+    handle = MessageQ_create (hostQueueName, &msgParams);
+    if (handle == NULL) {
         printf ("Error in MessageQ_create\n");
         goto exit;
     }
     else {
-        printf ("Local MessageQId: 0x%x\n",
-            MessageQ_getQueueId(MessageQApp_messageQ));
+        printf ("thread: %d, Local Message: %s, QId: 0x%x\n",
+            thread_num, hostQueueName,
+             MessageQ_getQueueId(handle));
     }
 
     /* Poll until remote side has it's messageQ created before we send: */
     do {
-        status = MessageQ_open (DUCATI_CORE0_MESSAGEQNAME,
-                       &MessageQApp_queueId);
+        status = MessageQ_open (remoteQueueName, &queueId);
 	sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
@@ -174,10 +186,12 @@ MessageQApp_execute ()
         goto cleanup;
     }
     else {
-        printf ("Remote MessageQApp_queueId  [0x%x]\n", MessageQApp_queueId);
+        printf ("thread: %d, Remote queue: %s, QId: 0x%x\n", 
+                 thread_num, remoteQueueName, queueId);
     }
 
-    printf ("\nExchanging messages with remote processor...\n");
+    printf ("\nthread: %d: Exchanging messages with remote processor...\n", 
+            thread_num);
     for (i = 0 ; i < NUM_LOOPS ; i++) {
           /* Allocate message. */
           msg = MessageQ_alloc (HEAPID, MSGSIZE);
@@ -189,9 +203,9 @@ MessageQApp_execute ()
           MessageQ_setMsgId (msg, i);
 
           /* Have the remote proc reply to this message queue */
-          MessageQ_setReplyQueue (MessageQApp_messageQ, msg);
+          MessageQ_setReplyQueue (handle, msg);
 
-          status = MessageQ_put (MessageQApp_queueId, msg);
+          status = MessageQ_put (queueId, msg);
           if (status < 0) {
               printf ("Error in MessageQ_put [0x%x]\n", status);
               break;
@@ -204,7 +218,7 @@ MessageQApp_execute ()
           }
 #endif
 
-          status = MessageQ_get(MessageQApp_messageQ, &msg, MessageQ_FOREVER);
+          status = MessageQ_get(handle, &msg, MessageQ_FOREVER);
           if (status < 0) {
               printf ("Error in MessageQ_get [0x%x]\n", status);
               break;
@@ -225,24 +239,24 @@ MessageQApp_execute ()
               printf ("MessageQ_free status [0x%x]\n", status);
           }
 
-          printf ("Exchanged %d messages with remote processor\n", (i+1));
+          printf ("thread: %d: Exchanged %d messages with remote processor\n", 
+                   thread_num, (i+1));
     }
 
-    printf ("Sample application successfully completed!\n");
+    printf ("thread: %d: ping_thread successfully completed!\n", thread_num);
 
-    MessageQ_close (&MessageQApp_queueId);
+    MessageQ_close (&queueId);
 
 cleanup:
     /* Clean-up */
-    status = MessageQ_delete (&MessageQApp_messageQ);
+    status = MessageQ_delete (&handle);
     if (status < 0) {
         printf ("Error in MessageQ_delete [0x%x]\n", status);
     }
 
 exit:
-    printf ("Leaving MessageQApp_execute\n\n");
 
-    return (status);
+    return (void *)status;
 }
 
 Int
@@ -277,8 +291,37 @@ MessageQApp_shutdown ()
 int
 main (int argc, char ** argv)
 {
+    struct thread_info threads[NUM_THREADS];
+    int ret,i;
+    void *res;
+
     MessageQApp_startup ();
-    MessageQApp_execute ();
+
+    /* Launch multiple threads: */
+    for (i = 0; i < NUM_THREADS; i++) {
+        /* Create the test thread: */
+        printf ("creating ping_thread: %d\n", i);
+        threads[i].thread_num = i;
+        ret = pthread_create(&threads[i].thread_id, NULL, &ping_thread, 
+                           &(threads[i].thread_num));
+        if (ret) {
+            printf("MessageQMulti: can't spawn thread: %d, %s\n", 
+                    i, strerror(ret));
+        }
+    }
+
+    /* Join all threads: */
+    for (i = 0; i < NUM_THREADS; i++) {
+        ret = pthread_join(threads[i].thread_id, &res);
+        if (ret != 0) {
+            printf("MessageQMulti: failed to join thread: %d, %s\n", 
+                    i, strerror(ret)); 
+        }
+        printf("MessageQMulti: Joined with thread %d; returned value was %s\n",
+                threads[i].thread_num, (char *) res);
+        free(res);      /* Free memory allocated by thread */
+    }
+
     MessageQApp_shutdown ();
 
     return(0);

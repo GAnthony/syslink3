@@ -80,8 +80,13 @@ pandaboard) from: http://narcissus.angstrom-distribution.org/
 4) To dump the Ducati trace on core 0:
    cat /debug/remoteproc/omap-rproc.1/trace0
 
-5) Run MessageQApp (built in src/samples)
-   # MessageQApp:
+5a) Start the NameServer daemon: (based on Link Arbiter Daemon):
+   lad lad.txt
+   # Optionally pipe out the NameServer printf:
+   tail -f /tmp/LAD/lad.txt
+
+5b) Run MessageQApp (built in src/samples)
+   MessageQApp:
 
 6) Expected Output: Linux side:
 
@@ -151,9 +156,7 @@ Documentation:
 TODO:
 =====
 * Make TransportVirtio work with MessageQCopy based channels and rpmsg-omx;
-* Implement NameServer
 * Support multiple threads and process sharing.
-* Support more than one MessageQ object.
 * Move libipc.la to a shared library.
 * Optimize performance.
 
