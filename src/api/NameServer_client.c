@@ -43,6 +43,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
+#include <pthread.h>
 
 #include <ti/ipc/NameServer.h>
 
@@ -54,6 +55,7 @@ static Bool verbose = TRUE;
 typedef struct _LAD_ClientInfo {
     Bool connectedToLAD;			  /* connection status */
     UInt PID;                                     /* client's process ID */
+    pthread_t thread;
     Char responseFIFOName[LAD_MAXLENGTHFIFONAME]; /* response FIFO name */
     FILE *responseFIFOFilePtr;                    /* FIFO file pointer */
 } _LAD_ClientInfo;
@@ -68,9 +70,6 @@ static LAD_Status getResponse(LAD_ClientHandle handle,
                               union LAD_ResponseObj *rsp);
 static LAD_Status initWrappers(Void);
 static Bool openCommandFIFO(Void);
-
-struct LAD_CommandObj cmd;
-union LAD_ResponseObj rsp;
 
 
 /*
@@ -97,6 +96,7 @@ findHandle(Void)
 
     for (i = 0; i < LAD_MAXNUMCLIENTS; i++) {
         if (clientInfo[i].PID == pid &&
+            clientInfo[i].thread == pthread_self() &&
             clientInfo[i].connectedToLAD == TRUE) {
             break;
         }
@@ -116,6 +116,8 @@ NameServer_setup(Void)
 {
     Int status;
     LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
@@ -148,6 +150,8 @@ NameServer_destroy(Void)
 {
     Int status;
     LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
@@ -180,6 +184,8 @@ NameServer_Params_init(NameServer_Params *params)
 {
     Int status;
     LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
@@ -213,6 +219,8 @@ NameServer_create(String name, const NameServer_Params *params)
 {
     Int status;
     LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
@@ -246,6 +254,8 @@ NameServer_addUInt32(NameServer_Handle nsHandle, String name, UInt32 value)
 {
     Int status;
     LAD_ClientHandle clHandle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
@@ -281,6 +291,8 @@ NameServer_getUInt32(NameServer_Handle nsHandle, String name, Ptr buf, UInt16 pr
     Int status;
     LAD_ClientHandle clHandle;
     UInt32 *val;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
@@ -325,6 +337,8 @@ NameServer_remove(NameServer_Handle nsHandle, String name)
 {
     Int status;
     LAD_ClientHandle clHandle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
@@ -360,6 +374,8 @@ NameServer_removeEntry(NameServer_Handle nsHandle, Ptr entry)
 {
     Int status;
     LAD_ClientHandle clHandle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
@@ -395,6 +411,8 @@ NameServer_delete(NameServer_Handle *nsHandle)
 {
     Int status;
     LAD_ClientHandle clHandle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
@@ -441,6 +459,8 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
     FILE * filePtr;
     Int n;
     Int pid;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
     /* sanity check arg */
     if (handle == NULL) {
@@ -462,7 +482,8 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
     pid = getpid();
 
     /* form name for dedicated response FIFO */
-    sprintf(responseFIFOName, "%s%d", LAD_RESPONSEFIFOPATH, pid);
+//    sprintf(responseFIFOName, "%s%d", LAD_RESPONSEFIFOPATH, pid);
+    sprintf(responseFIFOName, "%s%d", tempnam(NULL, NULL), pid);
 
     PRINTVERBOSE2("\nLAD_connect: PID = %d, fifoName = %s\n", pid,
         responseFIFOName)
@@ -510,6 +531,7 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
 
             /* setup client info */
             clientInfo[assignedId].PID = pid;
+            clientInfo[assignedId].thread = pthread_self();
             clientInfo[assignedId].responseFIFOFilePtr = filePtr;
             strcpy(clientInfo[assignedId].responseFIFOName, responseFIFOName);
             clientInfo[assignedId].connectedToLAD = TRUE;
@@ -546,6 +568,7 @@ LAD_Status  LAD_disconnect(LAD_ClientHandle handle)
     time_t currentTime;
     time_t startTime;
     double delta;
+    struct LAD_CommandObj cmd;
 
     /* sanity check args */
     if (handle >= LAD_MAXNUMCLIENTS) {

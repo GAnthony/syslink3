@@ -158,6 +158,20 @@ static void * ping_thread(void *arg)
     char             remoteQueueName[64];
     char             hostQueueName[64];
 
+#ifdef USE_LAD
+    LAD_ClientHandle ladHandle;
+    LAD_Status ladStatus;
+
+    ladStatus = LAD_connect(&ladHandle);
+    if (ladStatus != LAD_SUCCESS) {
+        printf("LAD_connect() failed: %d\n", ladStatus);
+        goto exit;
+    }
+    else {
+        printf("LAD_connect() succeeded: ladHandle=%d\n", ladHandle);
+    }
+#endif
+
     sprintf(remoteQueueName, "%s_%d", SLAVE_MESSAGEQNAME, thread_num );
     sprintf(hostQueueName,   "%s_%d", HOST_MESSAGEQNAME,  thread_num );
 
@@ -168,7 +182,7 @@ static void * ping_thread(void *arg)
     handle = MessageQ_create (hostQueueName, &msgParams);
     if (handle == NULL) {
         printf ("Error in MessageQ_create\n");
-        goto exit;
+        goto exitLAD;
     }
     else {
         printf ("thread: %d, Local Message: %s, QId: 0x%x\n",
@@ -253,6 +267,19 @@ cleanup:
     if (status < 0) {
         printf ("Error in MessageQ_delete [0x%x]\n", status);
     }
+
+exitLAD:
+
+#ifdef USE_LAD
+    ladStatus = LAD_disconnect(ladHandle);
+    if (ladStatus != LAD_SUCCESS) {
+        printf("LAD_disconnect() failed: %d\n", ladStatus);
+        status = NameServer_E_FAIL;
+    }
+    else {
+        printf("LAD_disconnect() succeeded\n");
+    }
+#endif
 
 exit:
 
