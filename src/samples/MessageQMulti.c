@@ -78,14 +78,16 @@
  *  ============================================================================
  */
 
-#define  NUM_LOOPS   10
-#define  NUM_THREADS 1
+#define  NUM_LOOPS_DFLT   100
+#define  NUM_THREADS_DFLT 10
+#define  MAX_NUM_THREADS  50
 
 /** ============================================================================
  *  Globals
  *  ============================================================================
  */
-UInt16                         MessageQApp_procId;
+UInt16  MessageQApp_procId;
+int     num_loops, num_threads;
 
 struct thread_info {    /* Used as argument to thread_start() */
     pthread_t thread_id;        /* ID returned by pthread_create() */
@@ -206,7 +208,7 @@ static void * ping_thread(void *arg)
 
     printf ("\nthread: %d: Exchanging messages with remote processor...\n", 
             thread_num);
-    for (i = 0 ; i < NUM_LOOPS ; i++) {
+    for (i = 0 ; i < num_loops ; i++) {
           /* Allocate message. */
           msg = MessageQ_alloc (HEAPID, MSGSIZE);
           if (msg == NULL) {
@@ -318,14 +320,36 @@ MessageQApp_shutdown ()
 int
 main (int argc, char ** argv)
 {
-    struct thread_info threads[NUM_THREADS];
+    struct thread_info threads[MAX_NUM_THREADS];
     int ret,i;
     void *res;
+
+    /* Parse Args: */
+    num_loops = NUM_LOOPS_DFLT;
+    num_threads = NUM_THREADS_DFLT;
+    switch (argc) {
+        case 1: 
+           /* use defaults */
+           break;
+        case 2: 
+           num_threads = atoi(argv[1]);
+           break;
+        case 3: 
+           num_threads = atoi(argv[1]);
+           num_loops   = atoi(argv[2]);
+           break;
+        default:
+           printf("Usage: %s [<num_threads>] [<num_loops>]\n", argv[0]);
+           printf("\tDefaults: num_threads: 10, num_loops: 100\n");
+           printf("\tMax Threads: 100\n");
+           exit(0);
+    }
+    printf("Using num_threads: %d, num_loops: %d\n", num_threads, num_loops);
 
     MessageQApp_startup ();
 
     /* Launch multiple threads: */
-    for (i = 0; i < NUM_THREADS; i++) {
+    for (i = 0; i < num_threads; i++) {
         /* Create the test thread: */
         printf ("creating ping_thread: %d\n", i);
         threads[i].thread_num = i;
@@ -338,7 +362,7 @@ main (int argc, char ** argv)
     }
 
     /* Join all threads: */
-    for (i = 0; i < NUM_THREADS; i++) {
+    for (i = 0; i < num_threads; i++) {
         ret = pthread_join(threads[i].thread_id, &res);
         if (ret != 0) {
             printf("MessageQMulti: failed to join thread: %d, %s\n", 

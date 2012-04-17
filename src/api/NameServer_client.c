@@ -153,6 +153,9 @@ NameServer_destroy(Void)
     struct LAD_CommandObj cmd;
     union LAD_ResponseObj rsp;
 
+
+    PRINTVERBOSE0("NameServer_destroy: entered\n")
+
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
         PRINTVERBOSE1("NameServer_destroy: can't find connection to daemon for pid %d\n", getpid())

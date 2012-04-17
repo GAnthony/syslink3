@@ -520,6 +520,8 @@ MessageQ_destroy (void)
     Int    tmpStatus = MessageQ_S_SUCCESS;
     UInt32 i;
 
+    printf ("MessageQ_destroy: Entered.\n");
+
     if ( MessageQ_module->refCount > 0 ) {
         /* Delete any Message Queues that have not been deleted so far. */
         for (i = 0; i< MessageQ_module->numQueues; i++) {
@@ -560,8 +562,9 @@ MessageQ_destroy (void)
     MessageQ_module->numHeaps   = 1u;
     MessageQ_module->canFreeQueues = TRUE;
 
-    return status;
+    printf ("MessageQ_destroy: Exited.\n");
 
+    return status;
 }
 
 /* Function to initialize the parameters for the MessageQ instance. */
@@ -616,6 +619,8 @@ MessageQ_create (      String            name,
         queueIndex = _MessageQ_grow (obj);
     }
 
+    pthread_mutex_unlock (&(MessageQ_module->gate));
+
     if (params != NULL) {
        /* Populate the params member */
        memcpy ((Ptr) &obj->params,
@@ -666,7 +671,6 @@ MessageQ_create (      String            name,
     }
 
 cleanup:
-    pthread_mutex_unlock (&(MessageQ_module->gate));
 
     /* Cleanup if fail: */
     if (status < 0) {
