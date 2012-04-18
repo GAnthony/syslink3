@@ -55,7 +55,6 @@ static Bool verbose = TRUE;
 typedef struct _LAD_ClientInfo {
     Bool connectedToLAD;			  /* connection status */
     UInt PID;                                     /* client's process ID */
-    pthread_t thread;
     Char responseFIFOName[LAD_MAXLENGTHFIFONAME]; /* response FIFO name */
     FILE *responseFIFOFilePtr;                    /* FIFO file pointer */
 } _LAD_ClientInfo;
@@ -70,6 +69,9 @@ static LAD_Status getResponse(LAD_ClientHandle handle,
                               union LAD_ResponseObj *rsp);
 static LAD_Status initWrappers(Void);
 static Bool openCommandFIFO(Void);
+// only _NP (non-portable) type available in CG tools which we're using
+static pthread_mutex_t modGate  = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+// static pthread_mutex_t modGate  = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 
 
 /*
@@ -96,7 +98,6 @@ findHandle(Void)
 
     for (i = 0; i < LAD_MAXNUMCLIENTS; i++) {
         if (clientInfo[i].PID == pid &&
-            clientInfo[i].thread == pthread_self() &&
             clientInfo[i].connectedToLAD == TRUE) {
             break;
         }
@@ -485,8 +486,7 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
     pid = getpid();
 
     /* form name for dedicated response FIFO */
-//    sprintf(responseFIFOName, "%s%d", LAD_RESPONSEFIFOPATH, pid);
-    sprintf(responseFIFOName, "%s%d", tempnam(NULL, NULL), pid);
+    sprintf(responseFIFOName, "%s%d", LAD_RESPONSEFIFOPATH, pid);
 
     PRINTVERBOSE2("\nLAD_connect: PID = %d, fifoName = %s\n", pid,
         responseFIFOName)
@@ -514,12 +514,17 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
         currentTime = time ((time_t *) 0);
         delta = difftime(currentTime, startTime);
         if (delta > LAD_CONNECTTIMEOUT) {
+            pthread_mutex_unlock(&modGate);
+
             return(LAD_IOFAILURE);
         }
     }
 
     /* now get LAD's response to the connection request */
     n = fread(&rsp, LAD_RESPONSELENGTH, 1, filePtr);
+
+    /* need to unlock mutex obtained by putCommand() */
+    pthread_mutex_unlock(&modGate);
 
     if (n) {
         PRINTVERBOSE0("\nLAD_connect: got response\n")
@@ -534,7 +539,6 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
 
             /* setup client info */
             clientInfo[assignedId].PID = pid;
-            clientInfo[assignedId].thread = pthread_self();
             clientInfo[assignedId].responseFIFOFilePtr = filePtr;
             strcpy(clientInfo[assignedId].responseFIFOName, responseFIFOName);
             clientInfo[assignedId].connectedToLAD = TRUE;
@@ -594,6 +598,9 @@ LAD_Status  LAD_disconnect(LAD_ClientHandle handle)
     /* on success, close the dedicated response FIFO */
     fclose(clientInfo[handle].responseFIFOFilePtr);
 
+    /* need to unlock mutex obtained by putCommand() */
+    pthread_mutex_unlock(&modGate);
+
     /* now wait for LAD to close the connection ... */
     startTime = time ((time_t *) 0);
     while (waiting == TRUE) {
@@ -631,14 +638,19 @@ static LAD_Status getResponse(LAD_ClientHandle handle,
     LAD_Status status = LAD_SUCCESS;
     Int n;
 
+    PRINTVERBOSE1("getResponse: client = %d\n", handle)
+
     n = fread(rsp, LAD_RESPONSELENGTH, 1, clientInfo[handle].responseFIFOFilePtr);
 
+    pthread_mutex_unlock(&modGate);
+
     if (n == 0) {
-        PRINTVERBOSE0("\ngetResponse: n = 0!\n")
+        PRINTVERBOSE0("getResponse: n = 0!\n")
         status = LAD_IOFAILURE;
     }
-
-    PRINTVERBOSE1("\ngetResponse: client = %d\n", handle)
+    else {
+        PRINTVERBOSE0("getResponse: got response\n")
+    }
 
     return(status);
 }
@@ -694,6 +706,10 @@ static LAD_Status putCommand(struct LAD_CommandObj *cmd)
     Int stat;
     Int n;
 
+    PRINTVERBOSE0("\nputCommand:\n")
+
+    pthread_mutex_lock(&modGate);
+
     n = fwrite(cmd, LAD_COMMANDLENGTH, 1, commandFIFOFilePtr);
 
     if (n == 0) {
@@ -708,6 +724,12 @@ static LAD_Status putCommand(struct LAD_CommandObj *cmd)
             status = LAD_IOFAILURE;
         }
     }
+
+    if (status != LAD_SUCCESS) {
+        pthread_mutex_unlock(&modGate);
+    }
+
+    PRINTVERBOSE1("putCommand: status = %d\n", status)
 
     return(status);
 }
