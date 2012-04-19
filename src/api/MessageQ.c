@@ -300,7 +300,9 @@ int transport_create_endpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
        goto exit;
     }
 
+#ifdef VERBOSE
     printf ("transport_create_endpoint: created socket: fd: %d\n", *fd);
+#endif
 
     err = socket_bind_addr(*fd, rprocId, (UInt32)queueIndex);
     if (err < 0) {
@@ -323,7 +325,10 @@ int transport_close_endpoint(int fd)
 {
     Int     status    = MessageQ_S_SUCCESS;
 
+#ifdef VERBOSE
     printf ("transport_close_endpoint: closing socket: %d\n", fd);
+#endif
+
     /* Stop communication to this socket:  */
     close(fd);
 
@@ -375,7 +380,7 @@ int transport_get(int sock, MessageQ_Msg * ret_msg)
          msg->msgSize = byte_count;
     }
 
-#ifndef BENCHMARK
+#ifdef VERBOSE
     printf ("transport_get: recvfrom socket: fd: %d\n", sock);
     printf("\tReceived a msg: byte_count: %d, rpmsg addr: %d, rpmsg proc: %d\n",
 			byte_count, from_addr.addr, from_addr.vproc_id);
@@ -409,15 +414,13 @@ int transport_put(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
      */
     sock = MessageQ_module->sock[dstProcId];
 
-#ifndef BENCHMARK
+#ifdef VERBOSE
     printf("Sending msgId: %d\n", msg->msgId);
 #endif
     err = send(sock, msg, msg->msgSize, 0);
     if (err < 0) {
-#ifndef BENCHMARK
        printf ("transport_put: send failed: %d, %s\n",
                   errno, strerror(errno));
-#endif
        status = MessageQ_E_FAIL;
     }
 
@@ -520,7 +523,9 @@ MessageQ_destroy (void)
     Int    tmpStatus = MessageQ_S_SUCCESS;
     UInt32 i;
 
+#ifdef VERBOSE
     printf ("MessageQ_destroy: Entered.\n");
+#endif
 
     if ( MessageQ_module->refCount > 0 ) {
         /* Delete any Message Queues that have not been deleted so far. */
@@ -562,7 +567,9 @@ MessageQ_destroy (void)
     MessageQ_module->numHeaps   = 1u;
     MessageQ_module->canFreeQueues = TRUE;
 
+#ifdef VERBOSE
     printf ("MessageQ_destroy: Exited.\n");
+#endif
 
     return status;
 }
@@ -650,8 +657,10 @@ MessageQ_create (      String            name,
             /* Skip creating an endpoint for ourself. */
             continue;
         }
+#ifdef VERBOSE
         printf ("MessageQ_create: creating endpoint for: %s, rprocId: %d\n",
                 name, rprocId);
+#endif
         status = transport_create_endpoint(&obj->fd[rprocId], rprocId,
                                            queueIndex);
         if (status < 0) {
@@ -1102,7 +1111,9 @@ MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
                        errno, strerror(errno));
         }
         else  {
+#ifdef VERBOSE
             printf ("MessageQ_attach: created send socket: %d\n", sock);
+#endif
             MessageQ_module->sock[remoteProcId] = sock;
             /* Attempt to connect: */
             if (connect_socket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT) == 0) {
@@ -1145,7 +1156,9 @@ MessageQ_detach (UInt16 remoteProcId)
                        errno, strerror(errno));
     }
     else {
+#ifdef VERBOSE
        printf ("MessageQ_detach: closed socket: %d\n", sock);
+#endif
        MessageQ_module->sock[remoteProcId] = Transport_INVALIDSOCKET;
     }
 
@@ -1197,7 +1210,9 @@ _MessageQ_grow (MessageQ_Object * obj)
           MessageQ_module->canFreeQueues = TRUE;
     }
 
+#ifdef VERBOSE
     printf ("_MessageQ_grow: queueIndex: 0x%x\n", queueIndex);
+#endif/
 
     return (queueIndex);
 }
