@@ -44,7 +44,7 @@ extern FILE *logPtr;
 #define LAD_RESPONSEFIFOPATH	LAD_WORKINGDIR
 #define LAD_PROTOCOLVERSION	"03000000"    /*  MMSSRRRR */
 
-#define LAD_MAXNUMCLIENTS	16 	/* max simultaneous clients */
+#define LAD_MAXNUMCLIENTS	32      /* max simultaneous clients */
 #define LAD_CONNECTTIMEOUT	5.0	/* LAD connect response timeout (sec) */
 #define LAD_DISCONNECTTIMEOUT	5.0	/* LAD disconnect timeout (sec) */
 #define LAD_MAXLENGTHFIFONAME	128 	/* max length client FIFO name */
