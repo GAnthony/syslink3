@@ -160,10 +160,10 @@ static void * ping_thread(void *arg)
     char             remoteQueueName[64];
     char             hostQueueName[64];
 
+    printf ("Entered ping_thread: %d\n", thread_num);
+
     sprintf(remoteQueueName, "%s_%d", SLAVE_MESSAGEQNAME, thread_num );
     sprintf(hostQueueName,   "%s_%d", HOST_MESSAGEQNAME,  thread_num );
-
-    printf ("thread: %d\n", thread_num);
 
     /* Create the local Message Queue for receiving. */
     MessageQ_Params_init (&msgParams);
@@ -174,8 +174,7 @@ static void * ping_thread(void *arg)
     }
     else {
         printf ("thread: %d, Local Message: %s, QId: 0x%x\n",
-            thread_num, hostQueueName,
-             MessageQ_getQueueId(handle));
+            thread_num, hostQueueName, MessageQ_getQueueId(handle));
     }
 
     /* Poll until remote side has it's messageQ created before we send: */
@@ -219,8 +218,6 @@ static void * ping_thread(void *arg)
               break;
           }
           else {
-              printf ("MessageQ_get #%d Msg = 0x%x\n", i, (UInt)msg);
-
               /* Validate the returned message. */
               if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
                   printf ("Data integrity failure!\n"
@@ -231,11 +228,9 @@ static void * ping_thread(void *arg)
               }
 
               status = MessageQ_free (msg);
-              printf ("MessageQ_free status [0x%x]\n", status);
           }
 
-          printf ("thread: %d: Exchanged %d messages with remote processor\n", 
-                   thread_num, (i+1));
+          printf ("thread: %d: Exchanged %d msgs\n", thread_num, (i+1));
     }
 
     printf ("thread: %d: ping_thread successfully completed!\n", thread_num);

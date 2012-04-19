@@ -197,13 +197,6 @@ MessageQApp_execute ()
               break;
           }
 
-#if 0
-          if (i == 1) {
-		/* TEMP: Need a little delay on first socket recvfrom() call: */
-		sleep (1);
-          }
-#endif
-
           status = MessageQ_get(MessageQApp_messageQ, &msg, MessageQ_FOREVER);
           if (status < 0) {
               printf ("Error in MessageQ_get [0x%x]\n", status);

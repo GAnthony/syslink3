@@ -80,7 +80,7 @@ Int connect_socket(int sock, UInt16 procId, int dst)
 		return (-1);
 	}
 
-#if 0
+#ifdef VERBOSE
 	printf("Connected over sock: %d\n\tdst vproc_id: %d, dst addr: %d\n",
 		     sock, dst_addr.vproc_id, dst_addr.addr);
 
@@ -107,7 +107,7 @@ int socket_bind_addr(int fd, UInt16 rproc_id, UInt32 local_addr)
     len = sizeof(struct sockaddr_rpmsg);
     err = bind(fd, (struct sockaddr *)&src_addr, len);
     if (err >= 0) {
-#if 0
+#ifdef VERBOSE
         printf("socket_bind_addr: bound sock: %d\n\tto dst vproc_id: %d, "
 		"src addr: %d\n", fd, src_addr.vproc_id, src_addr.addr);
 #endif
@@ -116,7 +116,7 @@ int socket_bind_addr(int fd, UInt16 rproc_id, UInt32 local_addr)
         if (err < 0) {
 	    printf("getsockname failed: %s (%d)\n", strerror(errno), errno);
         }
-#if 0
+#ifdef VERBOSE
         else {
             printf("\tsrc vproc_id: %d, src addr: %d\n",
 		     src_addr.vproc_id, src_addr.addr);

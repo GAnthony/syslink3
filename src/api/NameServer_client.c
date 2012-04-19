@@ -50,7 +50,7 @@
 #include <ladclient.h>
 #include <_lad.h>
 
-static Bool verbose = TRUE;
+static Bool verbose = FALSE;
 
 typedef struct _LAD_ClientInfo {
     Bool connectedToLAD;			  /* connection status */
