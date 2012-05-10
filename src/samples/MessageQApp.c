@@ -215,7 +215,6 @@ MessageQApp_execute ()
               }
 
               status = MessageQ_free (msg);
-              printf ("MessageQ_free status [0x%x]\n", status);
           }
 
           printf ("Exchanged %d messages with remote processor\n", (i+1));
