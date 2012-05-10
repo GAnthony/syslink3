@@ -1,0 +1,13 @@
+*.patch
+*.tar
+*.gz
+*.zip
+*patch*
+*~
+*.o
+*.a
+src/daemon/lad
+src/samples/MessageQApp
+src/samples/MessageQBench
+src/samples/MessageQMulti
+src/samples/NameServerApp
