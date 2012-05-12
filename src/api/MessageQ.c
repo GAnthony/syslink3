@@ -161,6 +161,7 @@
  * =============================================================================
  */
 
+//#define VERBOSE
 
 /*!
  *  @brief  Name of the reserved NameServer used for MessageQ.
@@ -415,7 +416,7 @@ int transport_put(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
     sock = MessageQ_module->sock[dstProcId];
 
 #ifdef VERBOSE
-    printf("Sending msgId: %d\n", msg->msgId);
+    printf("Sending msgId: %d via sock: %d\n", msg->msgId, sock);
 #endif
     err = send(sock, msg, msg->msgSize, 0);
     if (err < 0) {
@@ -424,10 +425,11 @@ int transport_put(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
        status = MessageQ_E_FAIL;
     }
 
-    /* Now free the message, as this is a copy transport, we maintain MessageQ
+    /* 
+     * Free the message, as this is a copy transport, we maintain MessageQ
      * semantics.
      */
-    status = MessageQ_free (msg);
+    MessageQ_free (msg);
 
     return status;
 }
@@ -1094,6 +1096,10 @@ MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
     Int     status = MessageQ_S_SUCCESS;
     Int     sock;
 
+#ifdef VERBOSE
+    printf ("MessageQ_attach: remoteProcId: %d\n", remoteProcId);
+#endif
+
     if (remoteProcId >= MultiProc_MAXPROCESSORS) {
         status = MessageQ_E_INVALIDPROCID;
         goto exit;
@@ -1212,7 +1218,7 @@ _MessageQ_grow (MessageQ_Object * obj)
 
 #ifdef VERBOSE
     printf ("_MessageQ_grow: queueIndex: 0x%x\n", queueIndex);
-#endif/
+#endif
 
     return (queueIndex);
 }
