@@ -49,96 +49,16 @@
 #include <Std.h>
 
 /* Module level headers */
-#include <ti/ipc/NameServer.h>
+#include <SysLink.h>
 #include <ti/ipc/MessageQ.h>
 #include <ti/ipc/MultiProc.h>
 
-/* For Backplane IPC startup/shutdown stuff: */
-#include <_MultiProc.h>
-#include <_MessageQ.h>
-#include <_NameServer.h>
-
-#ifdef USE_LAD
-#include <ladclient.h>
-#endif
-
-/* App defines */
-#define MSGSIZE                     64u
-/* Must match on remote proc side: */
-#define HEAPID                      0u
-
-#define DUCATI_CORE0_MESSAGEQNAME   "SLAVE"
-#define ARM_MESSAGEQNAME            "HOST"
-
-/** ============================================================================
- *  Macros and types
- *  ============================================================================
- */
-
-/*!
- *  @brief  Number of transfers to be tested.
- */
-#define  NUM_LOOPS  100
-
-/** ============================================================================
- *  Globals
- *  ============================================================================
- */
-MessageQ_Handle                MessageQApp_messageQ;
-MessageQ_QueueId               MessageQApp_queueId = MessageQ_INVALIDMESSAGEQ;
-UInt16                         MessageQApp_procId;
-
-#ifdef USE_LAD
-LAD_ClientHandle ladHandle;
-LAD_Status ladStatus;
-#endif
-
-/** ============================================================================
- *  Functions
- *  ============================================================================
- */
-Int
-MessageQApp_startup ()
-{
-    /* This must be setup to match BIOS side MultiProc configuration for the
-     * given platform!
-     */
-    MultiProc_Config MultiProc_cfg =  {
-       .numProcessors = 2,
-       .nameList[0] = "HOST",
-       .nameList[1] = "SysM3",
-       .id = 0,                 /* The host is always zero */
-    };
-    Int32             status = 0;
-    MessageQ_Config   cfg;
-
-    printf ("Entered MessageQApp_startup\n");
-
-#ifdef USE_LAD
-    ladStatus = LAD_connect(&ladHandle);
-    if (ladStatus != LAD_SUCCESS) {
-        printf("LAD_connect() failed: %d\n", ladStatus);
-        return -1;
-    }
-    else {
-        printf("LAD_connect() succeeded: ladHandle=%d\n", ladHandle);
-    }
-#endif
-
-    /* SysLink Backplane stuff:  */
-    MultiProc_setup(&MultiProc_cfg);
-    status = NameServer_setup();
-    if (status == NameServer_S_SUCCESS) {
-        MessageQ_getConfig(&cfg);
-        MessageQ_setup(&cfg);
-        MessageQApp_procId = MultiProc_getId("SysM3");
-        status = MessageQ_attach (MessageQApp_procId, NULL);
-    }
-
-    printf ("Leaving MessageQApp_startup: status = 0x%x\n", status);
-
-    return (status);
-}
+/* App defines:  Must match on remote proc side: */
+#define NUM_LOOPS           100     /* Number of transfers to be tested. */
+#define MSGSIZE             64u
+#define HEAPID              0u
+#define CORE0_MESSAGEQNAME  "SLAVE"
+#define MPU_MESSAGEQNAME    "HOST"
 
 
 Int
@@ -148,25 +68,26 @@ MessageQApp_execute ()
     MessageQ_Msg             msg        = NULL;
     MessageQ_Params          msgParams;
     UInt16                   i;
+    MessageQ_QueueId         queueId = MessageQ_INVALIDMESSAGEQ;
+    MessageQ_Handle          msgqHandle;
 
     printf ("Entered MessageQApp_execute\n");
 
     /* Create the local Message Queue for receiving. */
     MessageQ_Params_init (&msgParams);
-    MessageQApp_messageQ = MessageQ_create (ARM_MESSAGEQNAME, &msgParams);
-    if (MessageQApp_messageQ == NULL) {
+    msgqHandle = MessageQ_create (MPU_MESSAGEQNAME, &msgParams);
+    if (msgqHandle == NULL) {
         printf ("Error in MessageQ_create\n");
         goto exit;
     }
     else {
         printf ("Local MessageQId: 0x%x\n",
-            MessageQ_getQueueId(MessageQApp_messageQ));
+            MessageQ_getQueueId(msgqHandle));
     }
 
     /* Poll until remote side has it's messageQ created before we send: */
     do {
-        status = MessageQ_open (DUCATI_CORE0_MESSAGEQNAME,
-                       &MessageQApp_queueId);
+        status = MessageQ_open (CORE0_MESSAGEQNAME, &queueId);
 	sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
@@ -174,7 +95,7 @@ MessageQApp_execute ()
         goto cleanup;
     }
     else {
-        printf ("Remote MessageQApp_queueId  [0x%x]\n", MessageQApp_queueId);
+        printf ("Remote queueId  [0x%x]\n", queueId);
     }
 
     printf ("\nExchanging messages with remote processor...\n");
@@ -189,15 +110,15 @@ MessageQApp_execute ()
           MessageQ_setMsgId (msg, i);
 
           /* Have the remote proc reply to this message queue */
-          MessageQ_setReplyQueue (MessageQApp_messageQ, msg);
+          MessageQ_setReplyQueue (msgqHandle, msg);
 
-          status = MessageQ_put (MessageQApp_queueId, msg);
+          status = MessageQ_put (queueId, msg);
           if (status < 0) {
               printf ("Error in MessageQ_put [0x%x]\n", status);
               break;
           }
 
-          status = MessageQ_get(MessageQApp_messageQ, &msg, MessageQ_FOREVER);
+          status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
           if (status < 0) {
               printf ("Error in MessageQ_get [0x%x]\n", status);
               break;
@@ -220,13 +141,15 @@ MessageQApp_execute ()
           printf ("Exchanged %d messages with remote processor\n", (i+1));
     }
 
-    printf ("Sample application successfully completed!\n");
+    if (status >= 0) {
+       printf ("Sample application successfully completed!\n");
+    }
 
-    MessageQ_close (&MessageQApp_queueId);
+    MessageQ_close (&queueId);
 
 cleanup:
     /* Clean-up */
-    status = MessageQ_delete (&MessageQApp_messageQ);
+    status = MessageQ_delete (&msgqHandle);
     if (status < 0) {
         printf ("Error in MessageQ_delete [0x%x]\n", status);
     }
@@ -237,41 +160,22 @@ exit:
     return (status);
 }
 
-Int
-MessageQApp_shutdown ()
-{
-    Int32               status = 0;
-
-    printf ("Entered MessageQApp_shutdown()\n");
-
-    /* SysLink Backplane stuff: */
-    status = MessageQ_detach (MessageQApp_procId);
-    MessageQ_destroy ();
-    NameServer_destroy();
-    MultiProc_destroy();
-
-#ifdef USE_LAD
-    ladStatus = LAD_disconnect(ladHandle);
-    if (ladStatus != LAD_SUCCESS) {
-        printf("LAD_disconnect() failed: %d\n", ladStatus);
-        return -1;
-    }
-    else {
-        printf("LAD_disconnect() succeeded\n");
-    }
-#endif
-
-    printf ("Leave MessageQApp_shutdown()\n");
-
-    return (status);
-}
 
 int
 main (int argc, char ** argv)
 {
-    MessageQApp_startup ();
-    MessageQApp_execute ();
-    MessageQApp_shutdown ();
+    Int32   status = 0;
+
+    status = SysLink_setup();
+
+    if (status >= 0) {
+       MessageQApp_execute();
+    }
+    else {
+       printf ("SysLink_setup failed: status = 0x%x\n", status);
+    }
+
+    SysLink_destroy();
 
     return(0);
 }
