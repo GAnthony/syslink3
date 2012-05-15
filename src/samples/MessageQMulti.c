@@ -39,37 +39,19 @@
 
 /* Standard headers */
 #include <pthread.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 
-/* SysLink Standard Header: */
+/* SysLink/IPC Headers: */
 #include <Std.h>
-
-/* Module level headers */
-#include <ti/ipc/NameServer.h>
+#include <SysLink.h>
 #include <ti/ipc/MessageQ.h>
-#include <ti/ipc/MultiProc.h>
 
-/* For Backplane IPC startup/shutdown stuff: */
-#include <_MultiProc.h>
-#include <_MessageQ.h>
-#include <_NameServer.h>
-
-#ifdef USE_LAD
-#include <ladclient.h>
-#endif
-
-/* App defines */
+/* App defines: Must match on remote proc side: */
 #define MSGSIZE                     64u
-/* Must match on remote proc side: */
 #define HEAPID                      0u
-
 #define SLAVE_MESSAGEQNAME          "SLAVE"
 #define HOST_MESSAGEQNAME           "HOST"
 
@@ -86,7 +68,6 @@
  *  Globals
  *  ============================================================================
  */
-UInt16  MessageQApp_procId;
 int     num_loops, num_threads;
 
 struct thread_info {    /* Used as argument to thread_start() */
@@ -94,58 +75,10 @@ struct thread_info {    /* Used as argument to thread_start() */
     int       thread_num;       /* Application-defined thread # */
 };
 
-#ifdef USE_LAD
-LAD_ClientHandle ladHandle;
-LAD_Status ladStatus;
-#endif
-
 /** ============================================================================
  *  Functions
  *  ============================================================================
  */
-Int
-MessageQApp_startup ()
-{
-    /* This must be setup to match BIOS side MultiProc configuration for the
-     * given platform!
-     */
-    MultiProc_Config MultiProc_cfg =  {
-       .numProcessors = 2,
-       .nameList[0] = "HOST",
-       .nameList[1] = "SysM3",
-       .id = 0,                 /* The host is always zero */
-    };
-    Int32             status = 0;
-    MessageQ_Config   cfg;
-
-    printf ("Entered MessageQApp_startup\n");
-
-#ifdef USE_LAD
-    ladStatus = LAD_connect(&ladHandle);
-    if (ladStatus != LAD_SUCCESS) {
-        printf("LAD_connect() failed: %d\n", ladStatus);
-        return -1;
-    }
-    else {
-        printf("LAD_connect() succeeded: ladHandle=%d\n", ladHandle);
-    }
-#endif
-
-    /* SysLink Backplane stuff:  */
-    MultiProc_setup(&MultiProc_cfg);
-    status = NameServer_setup();
-    if (status == NameServer_S_SUCCESS) {
-        MessageQ_getConfig(&cfg);
-        MessageQ_setup(&cfg);
-        MessageQApp_procId = MultiProc_getId("SysM3");
-        status = MessageQ_attach (MessageQApp_procId, NULL);
-    }
-
-    printf ("Leaving MessageQApp_startup: status = 0x%x\n", status);
-
-    return (status);
-}
-
 
 static void * ping_thread(void *arg)
 {
@@ -249,41 +182,12 @@ exit:
     return (void *)status;
 }
 
-Int
-MessageQApp_shutdown ()
-{
-    Int32               status = 0;
-
-    printf ("Entered MessageQApp_shutdown()\n");
-
-    /* SysLink Backplane stuff: */
-    status = MessageQ_detach (MessageQApp_procId);
-    MessageQ_destroy ();
-    NameServer_destroy();
-    MultiProc_destroy();
-
-#ifdef USE_LAD
-    ladStatus = LAD_disconnect(ladHandle);
-    if (ladStatus != LAD_SUCCESS) {
-        printf("LAD_disconnect() failed: %d\n", ladStatus);
-        return -1;
-    }
-    else {
-        printf("LAD_disconnect() succeeded\n");
-    }
-#endif
-
-    printf ("Leave MessageQApp_shutdown()\n");
-
-    return (status);
-}
-
-int
-main (int argc, char ** argv)
+int main (int argc, char ** argv)
 {
     struct thread_info threads[MAX_NUM_THREADS];
     int ret,i;
     void *res;
+    Int32   status = 0;
 
     /* Parse Args: */
     num_loops = NUM_LOOPS_DFLT;
@@ -307,7 +211,10 @@ main (int argc, char ** argv)
     }
     printf("Using num_threads: %d, num_loops: %d\n", num_threads, num_loops);
 
-    MessageQApp_startup ();
+    status = SysLink_setup();
+    if (status < 0) {
+       goto exit;
+    }
 
     /* Launch multiple threads: */
     for (i = 0; i < num_threads; i++) {
@@ -334,7 +241,9 @@ main (int argc, char ** argv)
         free(res);      /* Free memory allocated by thread */
     }
 
-    MessageQApp_shutdown ();
+    SysLink_destroy();
+
+exit:
 
     return(0);
 }

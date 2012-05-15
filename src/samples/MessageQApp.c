@@ -38,20 +38,12 @@
  */
 
 /* Standard headers */
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
 
-/* SysLink Standard Header: */
+/* SysLink/IPC Headers: */
 #include <Std.h>
-
-/* Module level headers */
 #include <SysLink.h>
 #include <ti/ipc/MessageQ.h>
-#include <ti/ipc/MultiProc.h>
 
 /* App defines:  Must match on remote proc side: */
 #define NUM_LOOPS           100     /* Number of transfers to be tested. */
@@ -60,14 +52,13 @@
 #define CORE0_MESSAGEQNAME  "SLAVE"
 #define MPU_MESSAGEQNAME    "HOST"
 
-
 Int
 MessageQApp_execute ()
 {
     Int32                    status     = 0;
     MessageQ_Msg             msg        = NULL;
     MessageQ_Params          msgParams;
-    UInt16                   i;
+    int                      i;
     MessageQ_QueueId         queueId = MessageQ_INVALIDMESSAGEQ;
     MessageQ_Handle          msgqHandle;
 
@@ -160,7 +151,6 @@ exit:
     return (status);
 }
 
-
 int
 main (int argc, char ** argv)
 {
@@ -179,4 +169,3 @@ main (int argc, char ** argv)
 
     return(0);
 }
-
