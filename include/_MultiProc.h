@@ -66,7 +66,7 @@ extern "C" {
 /*!
  *  @brief  Max number of processors supported.
  */
-#define MultiProc_MAXPROCESSORS 4
+#define MultiProc_MAXPROCESSORS 10
 
 
 /*!
@@ -81,6 +81,8 @@ typedef struct MultiProc_Config_tag {
     /*!< Local Proc ID. This needs to be set before calling any other APIs */
 } MultiProc_Config;
 
+/* This exported from family/<PLATFORM_DIR>/MultiProc_cfg.c: */
+extern MultiProc_Config _MultiProc_cfg;
 
 /* =============================================================================
  *  APIs

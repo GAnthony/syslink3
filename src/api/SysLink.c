@@ -70,14 +70,6 @@ static void cleanup(int arg);
 /* Function to initialize SysLink. */
 Int SysLink_setup (Void)
 {
-    /* This must match BIOS side MultiProc configuration: */
-    /* TBD: Move this to a platform specific library: */
-    MultiProc_Config MultiProc_cfg =  {
-       .numProcessors = 2,
-       .nameList[0] = "HOST",
-       .nameList[1] = "CORE0",
-       .id = 0,                 /* The host is always zero */
-    };
     MessageQ_Config   msgqCfg;
     Int32             status = 0;
     LAD_Status        ladStatus;
@@ -93,7 +85,7 @@ Int SysLink_setup (Void)
         goto exit;
     }
 
-    MultiProc_setup(&MultiProc_cfg);
+    MultiProc_setup(&_MultiProc_cfg);
     status = NameServer_setup();
     if (status >= 0) {
         MessageQ_getConfig(&msgqCfg);

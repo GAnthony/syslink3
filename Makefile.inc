@@ -33,16 +33,21 @@
 # Tools REPO:
 REPO = /db/atree/gp/repo
 
+# Platform to build (see src/family/ for subdirectories).
+PLATFORM_DIR := omap4430
+
 # BIOS IPC Location for Shared API Headers:
 IPCPRODVER = ipc_1_23_01_26
 IPCPROD	= $(REPO)/$(IPCPRODVER)
 
+LIB_DEPS := ../api/libipc.a ../family/$(PLATFORM_DIR)/libcfg.a
 CROSS  := arm-none-linux-gnueabi-
 GCC    := $(CROSS)gcc
 AR     := $(CROSS)ar
 RANLIB := $(CROSS)ranlib
 CFLAGS := -Wall -I../../include -I$(IPCPROD)/packages -D_GNU_SOURCE
-LFLAGS := -lm -lpthread -L../api -lipc
+LFLAGS := -lm -lpthread -L../api -lipc -L../family/$(PLATFORM_DIR) -lcfg
+
 
 %.o: %.c
 	$(GCC) $(CFLAGS) -c $< -o $@

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, Texas Instruments Incorporated
+# Copyright (c) 2012, Texas Instruments Incorporated
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,21 +30,14 @@
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-all: libs samples daemon
+include	../../Makefile.inc
 
-libs:
-	@cd src/api; make
-	@cd src/family; make
+OBJ	= $(PLATFORM_DIR)/MultiProc_cfg.o
 
-samples:
-	@cd src/samples; make
-
-daemon:
-	@cd src/daemon; make
+$(PLATFORM_DIR)/libcfg.a: $(OBJ)
+	$(AR) -rcs $@ $<
+	$(AR) -t $@
+	$(RANLIB) $@
 
 clean:
-	@cd src/family; make clean
-	@cd src/api; make clean
-	@cd src/samples; make clean
-	@cd src/daemon; make clean
-
+	@rm -f $(OBJ) $(PLATFORM_DIR)/libcfg.a

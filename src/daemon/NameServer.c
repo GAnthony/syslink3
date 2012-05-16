@@ -386,16 +386,6 @@ static void *listener_cb(void *arg)
  * =============================================================================
  */
 
-/* This must be setup to match BIOS side MultiProc configuration for the
- * given platform!
- */
-MultiProc_Config MultiProc_cfg = {
-   .numProcessors = 2,
-   .nameList[0] = "HOST",
-   .nameList[1] = "SysM3",
-   .id = 0,                 /* The host is always zero */
-};
-
 /* Function to setup the nameserver module. */
 Int
 NameServer_setup(Void)
@@ -415,7 +405,7 @@ NameServer_setup(Void)
     }
     NameServer_module->refCount++;
 
-    MultiProc_setup(&MultiProc_cfg);
+    MultiProc_setup(&_MultiProc_cfg);
     numProcs = MultiProc_getNumProcessors();
 
     NameServer_module->unblock_fd = eventfd(0, 0);
