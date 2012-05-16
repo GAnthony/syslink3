@@ -32,20 +32,22 @@
 
 include ../../Makefile.inc
 
-all: MessageQApp MessageQBench MessageQMulti NameServerApp
+EXES := MessageQApp MessageQBench MessageQMulti NameServerApp
 
-MessageQApp: MessageQApp.c ../api/libipc.a
-	$(GCC) $(CFLAGS) -DUSE_LAD $< -o $@ $(LFLAGS)
+all: $(EXES)
 
-MessageQBench: MessageQBench.c ../api/libipc.a
-	$(GCC) $(CFLAGS) -DUSE_LAD $< -o $@ $(LFLAGS) -lrt
+MessageQApp: MessageQApp.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
 
-MessageQMulti: MessageQMulti.c ../api/libipc.a
-	$(GCC) $(CFLAGS) -DUSE_LAD $< -o $@ $(LFLAGS)
+MessageQBench: MessageQBench.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS) -lrt
 
-NameServerApp: NameServerApp.c ../api/libipc.a
+MessageQMulti: MessageQMulti.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
+
+NameServerApp: NameServerApp.c $(LIB_DEPS)
 	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
 
 clean:
-	@rm -f MessageQApp MessageQBench NameServerApp
+	@rm -f $(EXES)
 

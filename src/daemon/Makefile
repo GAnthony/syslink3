@@ -40,5 +40,5 @@ lad: lad.c NameServer.o ../api/libipc.a
 	$(GCC) $(CFLAGS) $< -o $@ NameServer.o $(LFLAGS)
 
 clean:
-	@rm -f lad
+	@rm -f *.o lad
 
