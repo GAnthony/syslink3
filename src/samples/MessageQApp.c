@@ -160,12 +160,11 @@ main (int argc, char ** argv)
 
     if (status >= 0) {
        MessageQApp_execute();
+       SysLink_destroy();
     }
     else {
        printf ("SysLink_setup failed: status = 0x%x\n", status);
     }
-
-    SysLink_destroy();
 
     return(0);
 }
