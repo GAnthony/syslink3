@@ -213,6 +213,7 @@ int main (int argc, char ** argv)
 
     status = SysLink_setup();
     if (status < 0) {
+       printf ("SysLink_setup failed: status = 0x%x\n", status);
        goto exit;
     }
 
