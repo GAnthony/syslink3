@@ -30,24 +30,15 @@
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-all: libs samples daemon tests
+include ../../Makefile.inc
 
-libs:
-	@cd src/api; make
-	@cd src/family; make
+EXES := nano_test
 
-samples:
-	@cd src/samples; make
+all: $(EXES)
 
-daemon:
-	@cd src/daemon; make
-
-tests:
-	@cd src/tests; make
+nano_test: nano_test.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
 
 clean:
-	@cd src/family; make clean
-	@cd src/api; make clean
-	@cd src/samples; make clean
-	@cd src/daemon; make clean
+	@rm -f $(EXES)
 
