@@ -11,3 +11,4 @@ src/samples/MessageQApp
 src/samples/MessageQBench
 src/samples/MessageQMulti
 src/samples/NameServerApp
+src/tests/nano_test
