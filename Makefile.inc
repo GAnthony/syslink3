@@ -38,15 +38,15 @@ PLATFORM_DIR := omap4430
 
 # BIOS IPC Location for Shared API Headers:
 IPCPRODVER = ipc_1_23_01_26
-IPCPROD	= $(REPO)/$(IPCPRODVER)
+IPC_INSTALL_DIR = $(REPO)/$(IPCPRODVER)
 
 LIB_DEPS := $(SYSLINK_ROOT)/src/api/libipc.a $(SYSLINK_ROOT)/src/utils/libutils.a $(SYSLINK_ROOT)/src/family/$(PLATFORM_DIR)/libcfg.a
 CROSS  := arm-none-linux-gnueabi-
 GCC    := $(CROSS)gcc
 AR     := $(CROSS)ar
 RANLIB := $(CROSS)ranlib
-CFLAGS := -Wall -I$(SYSLINK_ROOT)/include -I$(IPCPROD)/packages -D_GNU_SOURCE
-LFLAGS := -lm -lpthread -L$(SYSLINK_ROOT)/src/api -lipc -L$(SYSLINK_ROOT)/src/utils -lutils -L$(SYSLINK_ROOT)/src/family/$(PLATFORM_DIR) -lcfg
+CFLAGS := -Wall -I$(SYSLINK_ROOT)/include -I$(IPC_INSTALL_DIR)/packages -D_GNU_SOURCE
+LFLAGS := -lpthread -L$(SYSLINK_ROOT)/src/api -lipc -L$(SYSLINK_ROOT)/src/utils -lutils -L$(SYSLINK_ROOT)/src/family/$(PLATFORM_DIR) -lcfg
 
 
 %.o: %.c

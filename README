@@ -83,6 +83,7 @@ pandaboard) from: http://narcissus.angstrom-distribution.org/
 3) On the target, load the BIOS firmware and rpmsg socket driver:
    (See etc/load_firmware.sh):
    % depmod -a
+   % mkdir /debug
    % mount -t debugfs none /debug
    % modprobe remoteproc
    % modprobe omap_remoteproc
