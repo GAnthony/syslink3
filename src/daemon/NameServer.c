@@ -71,7 +71,7 @@
 #include <_NameServerRemoteRpmsg.h>
 
 /* Socket utils: */
-#include "../api/socketfxns.h"
+#include <socketfxns.h>
 
 #include <_lad.h>
 

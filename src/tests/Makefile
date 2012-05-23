@@ -32,13 +32,21 @@
 
 include ../../Makefile.inc
 
-EXES := nano_test
+EXES := MessageQBench MessageQMulti NameServerApp nano_test
 
 all: $(EXES)
+
+MessageQBench: MessageQBench.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS) -lrt
+
+MessageQMulti: MessageQMulti.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
+
+NameServerApp: NameServerApp.c $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
 
 nano_test: nano_test.c $(LIB_DEPS)
 	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
 
 clean:
 	@rm -f $(EXES)
-

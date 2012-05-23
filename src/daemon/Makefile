@@ -36,7 +36,7 @@ all: lad
 
 NameServer.o: NameServer.c
 
-lad: lad.c NameServer.o ../api/libipc.a
+lad: lad.c NameServer.o $(LIB_DEPS)
 	$(GCC) $(CFLAGS) $< -o $@ NameServer.o $(LFLAGS)
 
 clean:

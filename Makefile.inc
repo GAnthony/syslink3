@@ -40,13 +40,13 @@ PLATFORM_DIR := omap4430
 IPCPRODVER = ipc_1_23_01_26
 IPCPROD	= $(REPO)/$(IPCPRODVER)
 
-LIB_DEPS := ../api/libipc.a ../family/$(PLATFORM_DIR)/libcfg.a
+LIB_DEPS := $(SYSLINK_ROOT)/src/api/libipc.a $(SYSLINK_ROOT)/src/utils/libutils.a $(SYSLINK_ROOT)/src/family/$(PLATFORM_DIR)/libcfg.a
 CROSS  := arm-none-linux-gnueabi-
 GCC    := $(CROSS)gcc
 AR     := $(CROSS)ar
 RANLIB := $(CROSS)ranlib
-CFLAGS := -Wall -I../../include -I$(IPCPROD)/packages -D_GNU_SOURCE
-LFLAGS := -lm -lpthread -L../api -lipc -L../family/$(PLATFORM_DIR) -lcfg
+CFLAGS := -Wall -I$(SYSLINK_ROOT)/include -I$(IPCPROD)/packages -D_GNU_SOURCE
+LFLAGS := -lm -lpthread -L$(SYSLINK_ROOT)/src/api -lipc -L$(SYSLINK_ROOT)/src/utils -lutils -L$(SYSLINK_ROOT)/src/family/$(PLATFORM_DIR) -lcfg
 
 
 %.o: %.c

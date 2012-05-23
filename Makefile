@@ -33,21 +33,24 @@
 all: libs samples daemon tests
 
 libs:
-	@cd src/api; make
-	@cd src/family; make
+	@cd src/api; make SYSLINK_ROOT=$(CURDIR)
+	@cd src/utils; make SYSLINK_ROOT=$(CURDIR)
+	@cd src/family; make SYSLINK_ROOT=$(CURDIR)
 
 samples:
-	@cd src/samples; make
+	@cd src/samples; make SYSLINK_ROOT=$(CURDIR)
 
 daemon:
-	@cd src/daemon; make
+	@cd src/daemon; make SYSLINK_ROOT=$(CURDIR)
 
 tests:
-	@cd src/tests; make
+	@cd src/tests; make SYSLINK_ROOT=$(CURDIR)
 
 clean:
 	@cd src/family; make clean
 	@cd src/api; make clean
 	@cd src/samples; make clean
 	@cd src/daemon; make clean
+	@cd src/utils; make clean
+	@cd src/tests; make clean
 

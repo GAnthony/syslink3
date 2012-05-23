@@ -32,22 +32,12 @@
 
 include ../../Makefile.inc
 
-EXES := MessageQApp MessageQBench MessageQMulti NameServerApp
+EXES := MessageQApp
 
 all: $(EXES)
 
 MessageQApp: MessageQApp.c $(LIB_DEPS)
 	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
 
-MessageQBench: MessageQBench.c $(LIB_DEPS)
-	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS) -lrt
-
-MessageQMulti: MessageQMulti.c $(LIB_DEPS)
-	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
-
-NameServerApp: NameServerApp.c $(LIB_DEPS)
-	$(GCC) $(CFLAGS) $< -o $@ $(LFLAGS)
-
 clean:
 	@rm -f $(EXES)
-

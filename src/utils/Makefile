@@ -32,13 +32,13 @@
 
 include	../../Makefile.inc
 
-OBJ	= SysLink.o MessageQ.o
+OBJ	= MultiProc.o NameServer_client.o socketfxns.o
 
-libipc.a: $(OBJ)
-	$(AR) -rcs libipc.a $(OBJ)
-	$(AR) -t libipc.a
+libutils.a: $(OBJ)
+	$(AR) -rcs libutils.a $(OBJ)
+	$(AR) -t libutils.a
 	$(RANLIB) $@
 
 clean:
-	@rm -f $(OBJ) libipc.a
+	@rm -f $(OBJ) libutils.a
 
