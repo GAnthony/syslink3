@@ -136,10 +136,6 @@ typedef struct NameServer_ModuleObject {
     /* NameServer Message cache. */
     NameServer_Params   defInstParams;
     /* Default instance paramters */
-    NameServer_Config   defCfg;
-    /* Default module configuration */
-    NameServer_Config   cfg;
-    /* Module configuration */
     pthread_mutex_t     modGate;
 } NameServer_ModuleObject;
 

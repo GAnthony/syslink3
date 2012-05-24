@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Texas Instruments Incorporated
+ * Copyright (c) 2012, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,11 +120,11 @@ static void * ping_thread(void *arg)
         goto cleanup;
     }
     else {
-        printf ("thread: %d, Remote queue: %s, QId: 0x%x\n", 
+        printf ("thread: %d, Remote queue: %s, QId: 0x%x\n",
                  thread_num, remoteQueueName, queueId);
     }
 
-    printf ("\nthread: %d: Exchanging messages with remote processor...\n", 
+    printf ("\nthread: %d: Exchanging messages with remote processor...\n",
             thread_num);
     for (i = 0 ; i < num_loops ; i++) {
           /* Allocate message. */
@@ -179,7 +179,7 @@ cleanup:
 
 exit:
 
-    return (void *)status;
+    return ((void *)status);
 }
 
 int main (int argc, char ** argv)
@@ -222,10 +222,10 @@ int main (int argc, char ** argv)
         /* Create the test thread: */
         printf ("creating ping_thread: %d\n", i);
         threads[i].thread_num = i;
-        ret = pthread_create(&threads[i].thread_id, NULL, &ping_thread, 
+        ret = pthread_create(&threads[i].thread_id, NULL, &ping_thread,
                            &(threads[i].thread_num));
         if (ret) {
-            printf("MessageQMulti: can't spawn thread: %d, %s\n", 
+            printf("MessageQMulti: can't spawn thread: %d, %s\n",
                     i, strerror(ret));
         }
     }
@@ -234,8 +234,8 @@ int main (int argc, char ** argv)
     for (i = 0; i < num_threads; i++) {
         ret = pthread_join(threads[i].thread_id, &res);
         if (ret != 0) {
-            printf("MessageQMulti: failed to join thread: %d, %s\n", 
-                    i, strerror(ret)); 
+            printf("MessageQMulti: failed to join thread: %d, %s\n",
+                    i, strerror(ret));
         }
         printf("MessageQMulti: Joined with thread %d; returned value was %s\n",
                 threads[i].thread_num, (char *) res);
@@ -246,6 +246,6 @@ int main (int argc, char ** argv)
 
 exit:
 
-    return(0);
+    return (0);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Texas Instruments Incorporated
+ * Copyright (c) 2012, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,12 +45,6 @@
 
 
 static MultiProc_Config MultiProc_cfg;
-
-/*
- *************************************************************************
- *                       Common Header Functions
- *************************************************************************
- */
 
 /* Setup the MultiProc module. */
 Int MultiProc_setup (MultiProc_Config * cfg)

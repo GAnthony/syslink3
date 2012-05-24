@@ -48,16 +48,6 @@ extern "C" {
 #endif
 
 
-/* =============================================================================
- *  Macros and types
- * =============================================================================
- */
-/*!
- *  @def    MULTIPROC_MODULEID
- *  @brief  Unique module ID.
- */
-#define MultiProc_MODULEID      (UInt16) 0xB522
-
 /*!
  *  @brief  Max name length for a processor name.
  */
@@ -132,16 +122,8 @@ Int MultiProc_setup (MultiProc_Config * cfg);
  */
 Int MultiProc_destroy (Void);
 
-/*
- *  @brief     Determines the offset for any two processors.
- *
- *  @param     remoteProcId   Remote processor ID
- */
-UInt MultiProc_getSlot (UInt16 remoteProcId);
-
-
 #if defined (__cplusplus)
 }
-#endif /* defined (__cplusplus) */
+#endif
 
-#endif /* if !defined(_MULTIPROC_H_0XB522) */
+#endif

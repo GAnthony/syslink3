@@ -22,45 +22,16 @@ extern "C" {
  * =============================================================================
  */
 
-/* This must match on BIOS side. This will occupy queueIndex 0 of the MessageQ
+/*
+ * This must match on BIOS side. This will occupy queueIndex 0 of the MessageQ
  * module queues array, forcing MessageQ indicies to start from 1.
  */
 #define NAME_SERVER_RPMSG_ADDR 0
 
 /* =============================================================================
- * Struct & Enums
- * =============================================================================
- */
-/*!
- *  @brief  Module configuration structure.
- */
-typedef struct NameServer_Config_tag {
-    UInt32 reserved;
-    /*!< Reserved value. */
-} NameServer_Config;
-
-
-/* =============================================================================
  * APIs
  * =============================================================================
  */
-/*!
- *  @brief      Get the default configuration for the NameServer module.
- *
- *              This function can be called by the application to get their
- *              configuration parameter to NameServer_setup filled in by the
- *              NameServer module with the default parameters. If the user
- *              does not wish to make any change in the default parameters, this
- *              API is not required to be called.
- *
- *  @param      cfg        Pointer to the NameServer module configuration
- *                         structure in which the default config is to be
- *                         returned.
- *
- *  @sa         NameServer_setup
- */
-Void NameServer_getConfig (NameServer_Config * cfg);
-
 /*!
  *  @brief      Function to setup the nameserver module.
  *
@@ -77,6 +48,6 @@ Int NameServer_destroy (void);
 
 #if defined (__cplusplus)
 }
-#endif /* defined (__cplusplus) */
+#endif
 
-#endif /* NameServer_H_0X5B4D */
+#endif
