@@ -8,7 +8,7 @@
 *.a
 src/daemon/lad
 src/samples/MessageQApp
-src/samples/MessageQBench
-src/samples/MessageQMulti
-src/samples/NameServerApp
+src/tests/MessageQBench
+src/tests/MessageQMulti
+src/tests/NameServerApp
 src/tests/nano_test
