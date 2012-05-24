@@ -40,12 +40,7 @@
 #define USE_NSD
 
 /* Standard headers */
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
 
 /* SysLink Standard Header: */
 #include <Std.h>

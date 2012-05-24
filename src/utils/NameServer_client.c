@@ -1,4 +1,4 @@
-/* --COPYRIGHT--,BSD
+/*
  * Copyright (c) 2012, Texas Instruments Incorporated
  * All rights reserved.
  *
@@ -28,7 +28,6 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * --/COPYRIGHT--
  */
 /*
  *  ======== NameServer_client.c ========
