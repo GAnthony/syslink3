@@ -401,7 +401,6 @@ NameServer_setup(Void)
     }
     NameServer_module->refCount++;
 
-    MultiProc_setup(&_MultiProc_cfg);
     numProcs = MultiProc_getNumProcessors();
 
     NameServer_module->unblock_fd = eventfd(0, 0);

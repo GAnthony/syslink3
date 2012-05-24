@@ -43,31 +43,7 @@
 #include <ti/ipc/MultiProc.h>
 #include <_MultiProc.h>
 
-
 static MultiProc_Config MultiProc_cfg;
-
-/* Setup the MultiProc module. */
-Int MultiProc_setup (MultiProc_Config * cfg)
-{
-    Int status = MultiProc_S_SUCCESS;
-
-    if (cfg == NULL) {
-        status = MultiProc_E_FAIL;
-    }
-    else {
-        memcpy (&MultiProc_cfg, cfg, sizeof (MultiProc_Config));
-    }
-
-    return (status);
-}
-
-/* Destroy the MultiProc module. */
-Int MultiProc_destroy (Void)
-{
-    Int status = MultiProc_S_SUCCESS;
-
-    return (status);
-}
 
 /*
  *  ======== MultiProc_getId ========

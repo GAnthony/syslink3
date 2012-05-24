@@ -55,7 +55,6 @@
 
 /* IPC startup/shutdown stuff: */
 #include <ti/ipc/MultiProc.h>
-#include <_MultiProc.h>
 #include <_MessageQ.h>
 #include <_NameServer.h>
 
@@ -85,7 +84,6 @@ Int SysLink_setup (Void)
         goto exit;
     }
 
-    MultiProc_setup(&_MultiProc_cfg);
     status = NameServer_setup();
     if (status >= 0) {
         MessageQ_getConfig(&msgqCfg);
@@ -143,8 +141,6 @@ Void SysLink_destroy (Void)
     if (status < 0) {
        printf("SysLink_destroy: NameServer_destroy() failed: %d\n", status);
     }
-
-    MultiProc_destroy();
 
     ladStatus = LAD_disconnect(ladHandle);
     if (ladStatus != LAD_SUCCESS) {

@@ -32,7 +32,7 @@
 
 include	../../Makefile.inc
 
-OBJ	= $(PLATFORM_DIR)/MultiProc_cfg.o
+OBJ	= $(PLATFORM_DIR)/SystemCfg.o
 
 $(PLATFORM_DIR)/libcfg.a: $(OBJ)
 	$(AR) -rcs $@ $<

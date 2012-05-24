@@ -29,21 +29,18 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/*!
- *  @file       MultiProc_cfg.c
- *
- *  @brief      Platform specific configuration for MultiProc module.
- *
+/*
+ * ========SystemCfg.c ========
+ * System-wide configuration
  */
 
 /* Standard headers */
 #include <Std.h>
 
-/* MultiProc: */
-#include <ti/ipc/MultiProc.h>
+/* For Backplane IPC startup/shutdown stuff: */
 #include <_MultiProc.h>
 
-/* This must match BIOS side MultiProc configuration: */
+/* This must match BIOS side MultiProc configuration for given platform!: */
 MultiProc_Config _MultiProc_cfg =  {
    .numProcessors = 2,
    .nameList[0] = "HOST",
