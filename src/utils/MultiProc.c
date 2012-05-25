@@ -43,8 +43,6 @@
 #include <ti/ipc/MultiProc.h>
 #include <_MultiProc.h>
 
-static MultiProc_Config MultiProc_cfg;
-
 /*
  *  ======== MultiProc_getId ========
  */
@@ -56,9 +54,9 @@ UInt16 MultiProc_getId(String name)
     assert(name != NULL);
 
     id = MultiProc_INVALIDID;
-    for (i = 0; i < MultiProc_cfg.numProcessors; i++) {
-        if ((MultiProc_cfg.nameList[i] != NULL) &&
-                (strcmp(name, MultiProc_cfg.nameList[i]) == 0)) {
+    for (i = 0; i < _MultiProc_cfg.numProcessors; i++) {
+        if ((_MultiProc_cfg.nameList[i] != NULL) &&
+                (strcmp(name, _MultiProc_cfg.nameList[i]) == 0)) {
             id = i;
         }
     }
@@ -70,9 +68,9 @@ UInt16 MultiProc_getId(String name)
  */
 String MultiProc_getName(UInt16 id)
 {
-    assert(id < MultiProc_cfg.numProcessors);
+    assert(id < _MultiProc_cfg.numProcessors);
 
-    return (MultiProc_cfg.nameList[id]);
+    return (_MultiProc_cfg.nameList[id]);
 }
 
 /*
@@ -80,7 +78,7 @@ String MultiProc_getName(UInt16 id)
  */
 UInt16 MultiProc_getNumProcessors()
 {
-    return (MultiProc_cfg.numProcessors);
+    return (_MultiProc_cfg.numProcessors);
 }
 
 
@@ -89,7 +87,7 @@ UInt16 MultiProc_getNumProcessors()
  */
 UInt16 MultiProc_self()
 {
-    return (MultiProc_cfg.id);
+    return (_MultiProc_cfg.id);
 }
 
 /*
@@ -98,7 +96,7 @@ UInt16 MultiProc_self()
 Int MultiProc_setLocalId(UInt16 id)
 {
     /* id must be less than the number of processors */
-    assert(id < MultiProc_cfg.numProcessors);
+    assert(id < _MultiProc_cfg.numProcessors);
 
     /*
      *  Check the following
@@ -106,10 +104,10 @@ Int MultiProc_setLocalId(UInt16 id)
      *     To call setLocalId, the id must have been set to invalid.
      *  2. Make sure the call is made before module startup
      */
-    if ((MultiProc_cfg.id == MultiProc_INVALIDID) /* &&
+    if ((_MultiProc_cfg.id == MultiProc_INVALIDID) /* &&
         (Startup_rtsDone() == FALSE) */  )  {
         /* It is ok to set the id */
-        MultiProc_cfg.id = id;
+        _MultiProc_cfg.id = id;
         return (MultiProc_S_SUCCESS);
     }
 
