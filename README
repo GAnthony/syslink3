@@ -172,6 +172,7 @@ Documentation:
 
 TODO:
 =====
+* Add OSAL, and replace printf in API modules with Log_printf.
 * Support multiple processes.
 * Optimize performance/benchmark.
 * Make TransportVirtio work with MessageQCopy based channels and rpmsg-omx;
