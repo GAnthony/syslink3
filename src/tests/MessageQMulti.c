@@ -68,21 +68,23 @@
  *  Globals
  *  ============================================================================
  */
-int     num_loops, num_threads;
+static Int     numLoops, numThreads;
 
 struct thread_info {    /* Used as argument to thread_start() */
     pthread_t thread_id;        /* ID returned by pthread_create() */
     int       thread_num;       /* Application-defined thread # */
 };
 
+static void * pingThreadFxn(void *arg);
+
 /** ============================================================================
  *  Functions
  *  ============================================================================
  */
 
-static void * ping_thread(void *arg)
+static Void * pingThreadFxn(void *arg)
 {
-    int                      thread_num = *(int *)arg;
+    Int                      threadNum = *(int *)arg;
     Int32                    status     = 0;
     MessageQ_Msg             msg        = NULL;
     MessageQ_Params          msgParams;
@@ -93,10 +95,10 @@ static void * ping_thread(void *arg)
     char             remoteQueueName[64];
     char             hostQueueName[64];
 
-    printf ("Entered ping_thread: %d\n", thread_num);
+    printf ("Entered pingThreadFxn: %d\n", threadNum);
 
-    sprintf(remoteQueueName, "%s_%d", SLAVE_MESSAGEQNAME, thread_num );
-    sprintf(hostQueueName,   "%s_%d", HOST_MESSAGEQNAME,  thread_num );
+    sprintf(remoteQueueName, "%s_%d", SLAVE_MESSAGEQNAME, threadNum );
+    sprintf(hostQueueName,   "%s_%d", HOST_MESSAGEQNAME,  threadNum );
 
     /* Create the local Message Queue for receiving. */
     MessageQ_Params_init (&msgParams);
@@ -107,7 +109,7 @@ static void * ping_thread(void *arg)
     }
     else {
         printf ("thread: %d, Local Message: %s, QId: 0x%x\n",
-            thread_num, hostQueueName, MessageQ_getQueueId(handle));
+            threadNum, hostQueueName, MessageQ_getQueueId(handle));
     }
 
     /* Poll until remote side has it's messageQ created before we send: */
@@ -121,12 +123,12 @@ static void * ping_thread(void *arg)
     }
     else {
         printf ("thread: %d, Remote queue: %s, QId: 0x%x\n",
-                 thread_num, remoteQueueName, queueId);
+                 threadNum, remoteQueueName, queueId);
     }
 
     printf ("\nthread: %d: Exchanging messages with remote processor...\n",
-            thread_num);
-    for (i = 0 ; i < num_loops ; i++) {
+            threadNum);
+    for (i = 0 ; i < numLoops ; i++) {
           /* Allocate message. */
           msg = MessageQ_alloc (HEAPID, MSGSIZE);
           if (msg == NULL) {
@@ -163,10 +165,10 @@ static void * ping_thread(void *arg)
               status = MessageQ_free (msg);
           }
 
-          printf ("thread: %d: Exchanged %d msgs\n", thread_num, (i+1));
+          printf ("thread: %d: Exchanged %d msgs\n", threadNum, (i+1));
     }
 
-    printf ("thread: %d: ping_thread successfully completed!\n", thread_num);
+    printf ("thread: %d: pingThreadFxn successfully completed!\n", threadNum);
 
     MessageQ_close (&queueId);
 
@@ -190,26 +192,26 @@ int main (int argc, char ** argv)
     Int32   status = 0;
 
     /* Parse Args: */
-    num_loops = NUM_LOOPS_DFLT;
-    num_threads = NUM_THREADS_DFLT;
+    numLoops = NUM_LOOPS_DFLT;
+    numThreads = NUM_THREADS_DFLT;
     switch (argc) {
         case 1: 
            /* use defaults */
            break;
         case 2: 
-           num_threads = atoi(argv[1]);
+           numThreads = atoi(argv[1]);
            break;
         case 3: 
-           num_threads = atoi(argv[1]);
-           num_loops   = atoi(argv[2]);
+           numThreads = atoi(argv[1]);
+           numLoops   = atoi(argv[2]);
            break;
         default:
-           printf("Usage: %s [<num_threads>] [<num_loops>]\n", argv[0]);
-           printf("\tDefaults: num_threads: 10, num_loops: 100\n");
+           printf("Usage: %s [<numThreads>] [<numLoops>]\n", argv[0]);
+           printf("\tDefaults: numThreads: 10, numLoops: 100\n");
            printf("\tMax Threads: 100\n");
            exit(0);
     }
-    printf("Using num_threads: %d, num_loops: %d\n", num_threads, num_loops);
+    printf("Using numThreads: %d, numLoops: %d\n", numThreads, numLoops);
 
     status = SysLink_setup();
     if (status < 0) {
@@ -218,11 +220,11 @@ int main (int argc, char ** argv)
     }
 
     /* Launch multiple threads: */
-    for (i = 0; i < num_threads; i++) {
+    for (i = 0; i < numThreads; i++) {
         /* Create the test thread: */
-        printf ("creating ping_thread: %d\n", i);
+        printf ("creating pingThreadFxn: %d\n", i);
         threads[i].thread_num = i;
-        ret = pthread_create(&threads[i].thread_id, NULL, &ping_thread,
+        ret = pthread_create(&threads[i].thread_id, NULL, &pingThreadFxn,
                            &(threads[i].thread_num));
         if (ret) {
             printf("MessageQMulti: can't spawn thread: %d, %s\n",
@@ -231,7 +233,7 @@ int main (int argc, char ** argv)
     }
 
     /* Join all threads: */
-    for (i = 0; i < num_threads; i++) {
+    for (i = 0; i < numThreads; i++) {
         ret = pthread_join(threads[i].thread_id, &res);
         if (ret != 0) {
             printf("MessageQMulti: failed to join thread: %d, %s\n",

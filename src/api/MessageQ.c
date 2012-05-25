@@ -181,6 +181,9 @@
 #define TRACESHIFT    12
 #define TRACEMASK     0x1000
 
+/* Slot 0 reserved for NameServer messages: */
+#define RESERVED_MSGQ_INDEX  1
+
 /* Define BENCHMARK to quiet key MessageQ APIs: */
 //#define BENCHMARK
 
@@ -203,12 +206,10 @@ typedef struct MessageQ_ModuleObject {
     /*!< Default config values */
     MessageQ_Params     defaultInstParams;
     /*!< Default instance creation parameters */
-    Int                 sock[MultiProc_MAXPROCESSORS];
-    /*!< Default instance creation parameters */
-    Bool                connected[MultiProc_MAXPROCESSORS];
-    /* Transport to be set in messageq_register_transport */
+    int                 sock[MultiProc_MAXPROCESSORS];
+    /*!< Sockets to for sending to each remote processor */
     MessageQ_Handle *   queues;
-    /*!< Grow option */
+    /*!< Global array of message queues */
     UInt16              numQueues;
     /*!< Initial number of messageQ objects allowed */
     UInt16              numHeaps;
@@ -229,9 +230,9 @@ typedef struct MessageQ_Object_tag {
     /* Unique id */
     Ptr                     nsKey;
     /* NameServer key */
-    Int                     fd[MultiProc_MAXPROCESSORS];
+    int                     fd[MultiProc_MAXPROCESSORS];
     /* File Descriptor to block on messages from remote processors. */
-    Int                     unblock_fd;
+    int                     unblockFd;
     /* Write this fd to unblock the select() call in MessageQ _get() */
 } MessageQ_Object;
 
@@ -240,8 +241,7 @@ typedef struct MessageQ_Object_tag {
  *  Globals
  * =============================================================================
  */
-static
-MessageQ_ModuleObject MessageQ_state =
+static MessageQ_ModuleObject MessageQ_state =
 {
     .nameServer             = NULL,
     .queues                 = NULL,
@@ -266,174 +266,15 @@ MessageQ_ModuleObject * MessageQ_module = &MessageQ_state;
  * Forward declarations of internal functions
  * =============================================================================
  */
-/*
- *  @brief   Grow the MessageQ table
- *
- *  @sa      MessageQ_create
- */
-UInt16 _MessageQ_grow (MessageQ_Object * obj);
+/* Grow the MessageQ table */
+static UInt16 _MessageQ_grow (MessageQ_Object * obj);
 
 /* This is a helper function to initialize a message. */
 static Void MessageQ_msgInit (MessageQ_Msg msg);
-
-
-/*
- * =============================================================================
- * Transport: Fxns kept here until clients realize need for a transport layer
- * =============================================================================
- */
-/*
- * ======== transport_create_endpoint ========
- *
- * Create a communication endpoint to receive messages.
- */
-int transport_create_endpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
-{
-    Int     	status    = MessageQ_S_SUCCESS;
-    int         err;
-
-    /*  Create the socket to receive messages for this messageQ. */
-    *fd = socket(AF_RPMSG, SOCK_SEQPACKET, 0);
-    if (*fd < 0) {
-       status = MessageQ_E_FAIL;
-       printf ("transport_create_endpoint: socket call failed: %d, %s\n",
-                  errno, strerror(errno));
-       goto exit;
-    }
-
-#ifdef VERBOSE
-    printf ("transport_create_endpoint: created socket: fd: %d\n", *fd);
-#endif
-
-    err = SocketBindAddr(*fd, rprocId, (UInt32)queueIndex);
-    if (err < 0) {
-       status = MessageQ_E_FAIL;
-       printf ("transport_create_endpoint: bind failed: %d, %s\n",
-                  errno, strerror(errno));
-    }
-
-exit:
-
-    return(status);
-}
-
-/*
- * ======== transport_close_endpoint ========
- *
- *  Close the communication endpoint.
- */
-int transport_close_endpoint(int fd)
-{
-    Int     status    = MessageQ_S_SUCCESS;
-
-#ifdef VERBOSE
-    printf ("transport_close_endpoint: closing socket: %d\n", fd);
-#endif
-
-    /* Stop communication to this socket:  */
-    close(fd);
-
-    return(status);
-}
-
-/*
- * ======== transport_get ========
- *  Retrieve a message waiting in the socket's queue.
-*/
-int transport_get(int sock, MessageQ_Msg * ret_msg)
-{
-    Int     status    = MessageQ_S_SUCCESS;
-    struct  sockaddr_rpmsg  from_addr;  // [Socket address of sender]
-    unsigned int len;
-    MessageQ_Msg msg;
-    int     byte_count;
-
-    /*
-     * Allocate a message of max size to receive contents from the rpmsg socket
-     * (currently, a copy transport)
-     */
-    msg = MessageQ_alloc (0, MESSAGEQ_RPMSG_MAXSIZE);
-    if (!msg)  {
-       status = MessageQ_E_MEMORY;
-       goto exit;
-    }
-
-    memset(&from_addr, 0, sizeof(from_addr));
-    len = sizeof(from_addr);
-
-    byte_count = recvfrom(sock, msg, MESSAGEQ_RPMSG_MAXSIZE, 0,
-				(struct sockaddr *)&from_addr, &len);
-    if (len != sizeof(from_addr)) {
-        printf("recvfrom: got bad addr len (%d)\n", len);
-        status = MessageQ_E_FAIL;
-	goto exit;
-    }
-    if (byte_count < 0) {
-        printf("recvfrom failed: %s (%d)\n", strerror(errno), errno);
-        status = MessageQ_E_FAIL;
-	goto exit;
-    }
-    else {
-        /* Update the allocated message size (even though this may waste space
-         * when the actual message is smaller than the maximum rpmsg size,
-         * the message will be freed soon anyway, and it avoids an extra copy).
-         */
-         msg->msgSize = byte_count;
-    }
-
-#ifdef VERBOSE
-    printf ("transport_get: recvfrom socket: fd: %d\n", sock);
-    printf("\tReceived a msg: byte_count: %d, rpmsg addr: %d, rpmsg proc: %d\n",
-			byte_count, from_addr.addr, from_addr.vproc_id);
-    printf("\tMessage Id: %d, Message size: %d\n", msg->msgId, msg->msgSize);
-#endif
-
-    *ret_msg = msg;
-
-exit:
-    return(status);
-}
-
-
-/*
- * ======== transport_put ========
- *
- * Calls the socket API sendto() on the socket associated with
- * with this destination procID.
- * Currently, both local and remote messages are sent via the Socket ABI, so
- * no local object lists are maintained here.
-*/
-int transport_put(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
-{
-    Int     status    = MessageQ_S_SUCCESS;
-    int     sock;
-    int     err;
-
-    /*
-     * Retrieve the socket for the AF_SYSLINK protocol associated with this
-     * transport.
-     */
-    sock = MessageQ_module->sock[dstProcId];
-
-#ifdef VERBOSE
-    printf("Sending msgId: %d via sock: %d\n", msg->msgId, sock);
-#endif
-    err = send(sock, msg, msg->msgSize, 0);
-    if (err < 0) {
-       printf ("transport_put: send failed: %d, %s\n",
-                  errno, strerror(errno));
-       status = MessageQ_E_FAIL;
-    }
-
-    /* 
-     * Free the message, as this is a copy transport, we maintain MessageQ
-     * semantics.
-     */
-    MessageQ_free (msg);
-
-    return status;
-}
-
+static Int transportCreateEndpoint(int * fd, UInt16 rprocId, UInt16 queueIndex);
+static Int transportCloseEndpoint(int fd);
+static Int transportGet(int sock, MessageQ_Msg * retMsg);
+static Int transportPut(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId);
 
 /* =============================================================================
  * APIS
@@ -442,29 +283,21 @@ int transport_put(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
 /* Function to get default configuration for the MessageQ module.
  *
  */
-Void
-MessageQ_getConfig (MessageQ_Config * cfg)
+Void MessageQ_getConfig (MessageQ_Config * cfg)
 {
     assert (cfg != NULL);
 
     /* If setup has not yet been called... */
     if (MessageQ_module->refCount < 1)  {
-        memcpy (cfg,
-                &MessageQ_module->defaultCfg,
-                sizeof (MessageQ_Config));
+        memcpy (cfg, &MessageQ_module->defaultCfg, sizeof (MessageQ_Config));
     }
     else {
-        memcpy (cfg,
-                &MessageQ_module->cfg,
-                sizeof (MessageQ_Config));
+        memcpy (cfg, &MessageQ_module->cfg, sizeof (MessageQ_Config));
     }
-
 }
 
-
 /* Function to setup the MessageQ module. */
-Int
-MessageQ_setup (const MessageQ_Config * cfg)
+Int MessageQ_setup (const MessageQ_Config * cfg)
 {
     Int                    status = MessageQ_S_SUCCESS;
     NameServer_Params      params;
@@ -475,8 +308,7 @@ MessageQ_setup (const MessageQ_Config * cfg)
     if (MessageQ_module->refCount > 1) {
         status = MessageQ_S_ALREADYSETUP;
         printf ("MessageQ module has been already setup in this process.\n"
-                   "    RefCount: [%d]\n",
-                   MessageQ_module->refCount);
+                   "    RefCount: [%d]\n", MessageQ_module->refCount);
         goto exit;
     }
 
@@ -505,21 +337,18 @@ MessageQ_setup (const MessageQ_Config * cfg)
     /* Clear sockets array. */
     for (i = 0; i < MultiProc_MAXPROCESSORS; i++) {
        MessageQ_module->sock[i]      = Transport_INVALIDSOCKET;
-       MessageQ_module->connected[i] = FALSE;
     }
 
 exit:
-
-    return status;
+    return (status);
 }
 
-
-/* Function to destroy the MessageQ module.
+/*
+ * Function to destroy the MessageQ module.
  * Destroys socket/protocol maps;  sockets themselves should have been
  * destroyed in MessageQ_delete() and MessageQ_detach() calls.
  */
-Int
-MessageQ_destroy (void)
+Int MessageQ_destroy (void)
 {
     Int    status    = MessageQ_S_SUCCESS;
     Int    tmpStatus = MessageQ_S_SUCCESS;
@@ -529,7 +358,7 @@ MessageQ_destroy (void)
     printf ("MessageQ_destroy: Entered.\n");
 #endif
 
-    if ( MessageQ_module->refCount > 0 ) {
+    if (MessageQ_module->refCount > 0) {
         /* Delete any Message Queues that have not been deleted so far. */
         for (i = 0; i< MessageQ_module->numQueues; i++) {
             if (MessageQ_module->queues [i] != NULL) {
@@ -544,15 +373,12 @@ MessageQ_destroy (void)
     if (MessageQ_module->nameServer != NULL) {
         /* Delete the nameserver for modules */
         tmpStatus = NameServer_delete (&MessageQ_module->nameServer);
-        if ( (tmpStatus < 0) && (status >= 0)) {
+        if ((tmpStatus < 0) && (status >= 0)) {
               status = tmpStatus;
         }
     }
 
-    /*
-     * Since MessageQ_module->gate was not allocated, no need to delete.
-     */
-
+    /* Since MessageQ_module->gate was not allocated, no need to delete. */
 
     /* Assert that all sockets have already been closed. */
     for (i = 0; i < MultiProc_MAXPROCESSORS; i++) {
@@ -573,16 +399,14 @@ MessageQ_destroy (void)
     printf ("MessageQ_destroy: Exited.\n");
 #endif
 
-    return status;
+    return (status);
 }
 
 /* Function to initialize the parameters for the MessageQ instance. */
-Void
-MessageQ_Params_init (MessageQ_Params * params)
+Void MessageQ_Params_init (MessageQ_Params * params)
 {
-    memcpy (params,
-               &(MessageQ_module->defaultInstParams),
-               sizeof (MessageQ_Params));
+    memcpy (params, &(MessageQ_module->defaultInstParams),
+            sizeof (MessageQ_Params));
 
     return;
 }
@@ -593,9 +417,7 @@ MessageQ_Params_init (MessageQ_Params * params)
  *   Create a socket and bind the source address (local ProcId/MessageQ ID) in
  *   order to get messages dispatched to this messageQ.
  */
-MessageQ_Handle
-MessageQ_create (      String            name,
-                 const MessageQ_Params * params)
+MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
 {
     Int                 status    = MessageQ_S_SUCCESS;
     MessageQ_Object   * obj    = NULL;
@@ -613,8 +435,8 @@ MessageQ_create (      String            name,
     count = MessageQ_module->numQueues;
 
     /* Search the dynamic array for any holes */
-    /* We start from index == 1, as 0 is reserved for binding NameServer: */
-    for (i = 1; i < count ; i++) {
+    /* We start from 1, as 0 is reserved for binding NameServer: */
+    for (i = RESERVED_MSGQ_INDEX; i < count ; i++) {
         if (MessageQ_module->queues [i] == NULL) {
               MessageQ_module->queues [i] = (MessageQ_Handle) obj;
               queueIndex = i;
@@ -632,24 +454,20 @@ MessageQ_create (      String            name,
 
     if (params != NULL) {
        /* Populate the params member */
-       memcpy ((Ptr) &obj->params,
-                      (Ptr)params,
-                      sizeof (MessageQ_Params));
-   }
+       memcpy((Ptr) &obj->params, (Ptr)params, sizeof (MessageQ_Params));
+    }
 
     procId = MultiProc_self ();
     /* create globally unique messageQ ID: */
-    obj->queue =   (MessageQ_QueueId)
-                   (((UInt32) (procId) << 16) | queueIndex);
+    obj->queue = (MessageQ_QueueId)(((UInt32)(procId) << 16) | queueIndex);
 
     if (name != NULL) {
-       obj->nsKey = NameServer_addUInt32 (
-                                  MessageQ_module->nameServer,
-                                  name,
+       obj->nsKey = NameServer_addUInt32(MessageQ_module->nameServer, name,
                                   obj->queue);
     }
 
-    /* Create a set of communication endpoints (one per each remote proc),
+    /*
+     * Create a set of communication endpoints (one per each remote proc),
      * and return the socket as target for MessageQ_put() calls, and as
      * a file descriptor to close during MessageQ_delete().
      */
@@ -663,26 +481,25 @@ MessageQ_create (      String            name,
         printf ("MessageQ_create: creating endpoint for: %s, rprocId: %d\n",
                 name, rprocId);
 #endif
-        status = transport_create_endpoint(&obj->fd[rprocId], rprocId,
+        status = transportCreateEndpoint(&obj->fd[rprocId], rprocId,
                                            queueIndex);
         if (status < 0) {
 	    goto cleanup;
         }
     }
 
-    /* Now, to support MessageQ_unblock() functionality, create an event object.
+    /*
+     * Now, to support MessageQ_unblock() functionality, create an event object.
      * Writing to this event will unblock the select() call in MessageQ_get().
      */
-    obj->unblock_fd = eventfd(0, 0);
-    if (obj->unblock_fd == -1)  {
+    obj->unblockFd = eventfd(0, 0);
+    if (obj->unblockFd == -1)  {
         printf ("MessageQ_create: eventfd creation failed: %d, %s\n",
-                   errno,
-                   strerror(errno));
+                   errno, strerror(errno));
         status = MessageQ_E_FAIL;
     }
 
 cleanup:
-
     /* Cleanup if fail: */
     if (status < 0) {
         MessageQ_delete((MessageQ_Handle *)&obj);
@@ -696,8 +513,7 @@ cleanup:
  *
  * Deletes the socket associated with this MessageQ object.
  */
-Int
-MessageQ_delete (MessageQ_Handle * handlePtr)
+Int MessageQ_delete (MessageQ_Handle * handlePtr)
 {
     Int               status    = MessageQ_S_SUCCESS;
     MessageQ_Object * obj       = NULL;
@@ -706,12 +522,12 @@ MessageQ_delete (MessageQ_Handle * handlePtr)
     obj = (MessageQ_Object *) (*handlePtr);
 
     /* Close the event used for MessageQ_unblock(): */
-    close(obj->unblock_fd);
+    close(obj->unblockFd);
 
     /* Close the communication endpoint: */
     for (rprocId = 0; rprocId < MultiProc_getNumProcessors(); rprocId++) {
         if (obj->fd[rprocId] != Transport_INVALIDSOCKET) {
-            status = transport_close_endpoint(obj->fd[rprocId]);
+            status = transportCloseEndpoint(obj->fd[rprocId]);
         }
     }
 
@@ -740,9 +556,8 @@ MessageQ_delete (MessageQ_Handle * handlePtr)
     free (obj);
     *handlePtr = NULL;
 
-    return status;
+    return (status);
 }
-
 
 /*
  *  Opens an instance of MessageQ for sending.
@@ -751,21 +566,17 @@ MessageQ_delete (MessageQ_Handle * handlePtr)
  *  were created during MessageQ_attach(), and will be
  *  retrieved during MessageQ_put().
  */
-Int
-MessageQ_open (String name, MessageQ_QueueId * queueId)
+Int MessageQ_open (String name, MessageQ_QueueId * queueId)
 {
     Int status = MessageQ_S_SUCCESS;
 
     status = NameServer_getUInt32 (MessageQ_module->nameServer,
-                                     name,
-                                     queueId,
-                                     NULL);
+                                     name, queueId, NULL);
 
     if (status == NameServer_E_NOTFOUND) {
           /* Set return queue ID to invalid. */
           *queueId = MessageQ_INVALIDMESSAGEQ;
           status = MessageQ_E_NOTFOUND;
-          /* Do not set failure reason since this is a runtime error. */
     }
     else if (status >= 0) {
           /* Override with a MessageQ status code. */
@@ -783,42 +594,38 @@ MessageQ_open (String name, MessageQ_QueueId * queueId)
           }
     }
 
-    return status;
+    return (status);
 }
 
-
 /* Closes previously opened instance of MessageQ module. */
-Int
-MessageQ_close (MessageQ_QueueId * queueId)
+Int MessageQ_close (MessageQ_QueueId * queueId)
 {
     Int32 status = MessageQ_S_SUCCESS;
 
     /* Nothing more to be done for closing the MessageQ. */
     *queueId = MessageQ_INVALIDMESSAGEQ;
 
-    return status;
+    return (status);
 }
 
-
-/* Place a message onto a message queue.
+/*
+ * Place a message onto a message queue.
  *
  * Calls TransportShm_put(), which handles the sending of the message using the
  * appropriate kernel interface (socket, device ioctl) call for the remote
  * procId encoded in the queueId argument.
  *
  */
-Int
-MessageQ_put (MessageQ_QueueId queueId,
-              MessageQ_Msg     msg)
+Int MessageQ_put (MessageQ_QueueId queueId, MessageQ_Msg msg)
 {
     Int      status;
-    UInt16   dstProcId = (UInt16)(queueId >> 16);
+    UInt16   dstProcId  = (UInt16)(queueId >> 16);
     UInt16   queueIndex = (MessageQ_QueueIndex)(queueId & 0x0000ffff);
 
     msg->dstId     = queueIndex;
     msg->dstProc   = dstProcId;
 
-    status = transport_put(msg, queueIndex, dstProcId);
+    status = transportPut(msg, queueIndex, dstProcId);
 
     return (status);
 }
@@ -835,8 +642,7 @@ MessageQ_put (MessageQ_QueueId queueId,
  * MessageQ_create().
  *
  */
-Int
-MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
+Int MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
 {
     Int     status = MessageQ_S_SUCCESS;
     Int     tmpStatus;
@@ -845,7 +651,7 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
     int     nfds;
     fd_set  rfds;
     struct  timeval tv;
-    Ptr     timeval_ptr;
+    void    *timevalPtr;
     UInt16  rprocId;
     int     maxfd = 0;
 
@@ -860,23 +666,23 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
     }
 
     /* Wait also on the event fd, which may be written by MessageQ_unblock(): */
-    FD_SET(obj->unblock_fd, &rfds);
+    FD_SET(obj->unblockFd, &rfds);
 
     if (timeout == MessageQ_FOREVER) {
-       timeval_ptr = NULL;
+       timevalPtr = NULL;
     }
     else {
        /* Timeout given in msec: convert:  */
        tv.tv_sec = timeout / 1000;
        tv.tv_usec = (timeout % 1000) * 1000;
-       timeval_ptr = &tv;
+       timevalPtr = &tv;
     }
     /* Add one to last fd created: */
-    nfds = MAX(maxfd, obj->unblock_fd) + 1;
+    nfds = MAX(maxfd, obj->unblockFd) + 1;
 
-    retval = select(nfds, &rfds, NULL, NULL, timeval_ptr);
+    retval = select(nfds, &rfds, NULL, NULL, timevalPtr);
     if (retval)  {
-       if (FD_ISSET(obj->unblock_fd, &rfds))  {
+       if (FD_ISSET(obj->unblockFd, &rfds))  {
             /*
              * Our event was signalled by MessageQ_unblock().
              *
@@ -896,7 +702,7 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
                 }
                 if (FD_ISSET(obj->fd[rprocId], &rfds)) {
                     /* Our transport's fd was signalled: Get the message: */
-                    tmpStatus = transport_get(obj->fd[rprocId], msg);
+                    tmpStatus = transportGet(obj->fd[rprocId], msg);
                     if (tmpStatus < 0) {
                         printf ("MessageQ_get: tranposrtshm_get failed.");
                         status = MessageQ_E_FAIL;
@@ -913,39 +719,36 @@ MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
     return (status);
 }
 
-
-/* Return a count of the number of messages in the queue
+/*
+ * Return a count of the number of messages in the queue
  *
- * Implement as a socket ioctl, using getsockopt(). TBD in Socket ABI.
+ * TBD: Implement as a socket ioctl, using getsockopt().  Return -1 for now.
  */
-Int
-MessageQ_count (MessageQ_Handle handle)
+Int MessageQ_count (MessageQ_Handle handle)
 {
-    Int               count = 0;
-    /*
+    Int               count = -1;
+#if 0
     MessageQ_Object * obj   = (MessageQ_Object *) handle;
     socklen_t         optlen;
-    */
 
-    /* TBD: Need to find a way to implement (if anyone uses it!), and
+    /*
+     * TBD: Need to find a way to implement (if anyone uses it!), and
      * push down into transport..
      */
 
-    /* 2nd arg to getsockopt should be transport independent, but using
+    /*
+     * 2nd arg to getsockopt should be transport independent, but using
      *  SSKPROTO_SHMFIFO for now:
      */
-    /*
     getsockopt(obj->fd, SSKPROTO_SHMFIFO, SSKGETOPT_GETMSGQCOUNT,
                  &count, &optlen);
-    */
+#endif
 
     return (count);
 }
 
-
 /* Initializes a message not obtained from MessageQ_alloc. */
-Void
-MessageQ_staticMsgInit (MessageQ_Msg msg, UInt32 size)
+Void MessageQ_staticMsgInit (MessageQ_Msg msg, UInt32 size)
 {
     /* Fill in the fields of the message */
     MessageQ_msgInit (msg);
@@ -953,30 +756,29 @@ MessageQ_staticMsgInit (MessageQ_Msg msg, UInt32 size)
     msg->msgSize = size;
 }
 
-
 /*
  * Allocate a message and initialize the needed fields (note some
  * of the fields in the header are set via other APIs or in the
  * MessageQ_put function,
  */
-MessageQ_Msg
-MessageQ_alloc (UInt16 heapId, UInt32 size)
+MessageQ_Msg MessageQ_alloc (UInt16 heapId, UInt32 size)
 {
     MessageQ_Msg msg       = NULL;
 
-    /* Ignore heapId. */
-
+    /*
+     * heapId not used for local alloc (as this is over a copy transport), but
+     * we need to send to other side as heapId is used in BIOS transport:
+     */
     msg = (MessageQ_Msg)calloc (1, size);
     MessageQ_msgInit (msg);
     msg->msgSize = size;
+    msg->heapId  = heapId;
 
     return msg;
 }
 
-
 /* Frees the message back to the heap that was used to allocate it. */
-Int
-MessageQ_free (MessageQ_Msg msg)
+Int MessageQ_free (MessageQ_Msg msg)
 {
     UInt32         status = MessageQ_S_SUCCESS;
 
@@ -991,45 +793,39 @@ MessageQ_free (MessageQ_Msg msg)
     return status;
 }
 
-
 /* Register a heap with MessageQ. */
-Int
-MessageQ_registerHeap (Ptr heap, UInt16 heapId)
+Int MessageQ_registerHeap (Ptr heap, UInt16 heapId)
 {
     Int  status = MessageQ_S_SUCCESS;
 
+    /* Do nothing, as this uses a copy transport: */
 
     return status;
 }
-
 
 /* Unregister a heap with MessageQ. */
-Int
-MessageQ_unregisterHeap (UInt16 heapId)
+Int MessageQ_unregisterHeap (UInt16 heapId)
 {
     Int  status = MessageQ_S_SUCCESS;
+
+    /* Do nothing, as this uses a copy transport: */
 
     return status;
 }
 
-
 /* Unblocks a MessageQ */
-Void
-MessageQ_unblock (MessageQ_Handle handle)
+Void MessageQ_unblock (MessageQ_Handle handle)
 {
     MessageQ_Object * obj   = (MessageQ_Object *) handle;
     uint64_t     buf = 1;
-    int          num_bytes;
+    int          numBytes;
 
     /* Write 8 bytes to awaken any threads blocked on this messageQ: */
-    num_bytes = write(obj->unblock_fd, &buf, sizeof(buf));
+    numBytes = write(obj->unblockFd, &buf, sizeof(buf));
 }
 
-
 /* Embeds a source message queue into a message. */
-Void
-MessageQ_setReplyQueue (MessageQ_Handle   handle,
-                        MessageQ_Msg      msg)
+Void MessageQ_setReplyQueue (MessageQ_Handle handle, MessageQ_Msg msg)
 {
     MessageQ_Object * obj   = (MessageQ_Object *) handle;
 
@@ -1037,12 +833,10 @@ MessageQ_setReplyQueue (MessageQ_Handle   handle,
     msg->replyProc = (UInt16)(obj->queue >> 16);
 }
 
-
 /* Returns the QueueId associated with the handle. */
-MessageQ_QueueId
-MessageQ_getQueueId (MessageQ_Handle handle)
+MessageQ_QueueId MessageQ_getQueueId (MessageQ_Handle handle)
 {
-    MessageQ_Object * obj     = (MessageQ_Object *) handle;
+    MessageQ_Object * obj = (MessageQ_Object *) handle;
     UInt32            queueId;
 
     queueId = (obj->queue);
@@ -1050,51 +844,38 @@ MessageQ_getQueueId (MessageQ_Handle handle)
     return queueId;
 }
 
-
 /* Sets the tracing of a message */
-Void
-MessageQ_setMsgTrace (MessageQ_Msg msg, Bool traceFlag)
+Void MessageQ_setMsgTrace (MessageQ_Msg msg, Bool traceFlag)
 {
     msg->flags = (msg->flags & ~TRACEMASK) |   (traceFlag << TRACESHIFT);
 }
 
-
-/* Returns the amount of shared memory used by one transport instance.
+/*
+ *  Returns the amount of shared memory used by one transport instance.
  *
  *  The MessageQ module itself does not use any shared memory but the
  *  underlying transport may use some shared memory.
  */
-SizeT
-MessageQ_sharedMemReq (Ptr sharedAddr)
+SizeT MessageQ_sharedMemReq (Ptr sharedAddr)
 {
-
     SizeT memReq = 0u;
 
-    if (MultiProc_getNumProcessors ()  > 1) {
-        /* Determine device-specific shared memory requirements */
-        /* 'getsockopt(...,&memReq,...)' */
-        ;
-    }
+    /* Do nothing, as this is a copy transport. */
 
     return (memReq);
 }
-
 
 /*
  *  Create a socket for this remote proc, and attempt to connect.
  *
  *  Only creates a socket if one does not already exist for this procId.
  *
- *  Connect may fail if the remote proc has not yet initialized,
- *  in which case we set a flag and attempt re-connect on the first put.
- *
- *  Note: remote_proc_id may be MultiProc_Self() for loopback case.
+ *  Note: remoteProcId may be MultiProc_Self() for loopback case.
  */
-Int
-MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
+Int MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
 {
     Int     status = MessageQ_S_SUCCESS;
-    Int     sock;
+    int     sock;
 
 #ifdef VERBOSE
     printf ("MessageQ_attach: remoteProcId: %d\n", remoteProcId);
@@ -1122,9 +903,7 @@ MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
 #endif
             MessageQ_module->sock[remoteProcId] = sock;
             /* Attempt to connect: */
-            if (ConnectSocket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT) == 0) {
-                 MessageQ_module->connected[remoteProcId] = TRUE;
-            }
+            ConnectSocket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT);
         }
     }
     else {
@@ -1134,16 +913,14 @@ MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
     pthread_mutex_unlock (&(MessageQ_module->gate));
 
 exit:
-    return status;
+    return (status);
 }
-
 
 /*
  *  Close the socket for this remote proc.
  *
  */
-Int
-MessageQ_detach (UInt16 remoteProcId)
+Int MessageQ_detach (UInt16 remoteProcId)
 {
     Int status = MessageQ_S_SUCCESS;
     int sock;
@@ -1171,9 +948,8 @@ MessageQ_detach (UInt16 remoteProcId)
     pthread_mutex_unlock (&(MessageQ_module->gate));
 
 exit:
-    return status;
+    return (status);
 }
-
 
 /*!
  *  @brief   Grow the MessageQ table
@@ -1183,8 +959,7 @@ exit:
  *  @sa      _MessageQ_grow
  *
  */
-UInt16
-_MessageQ_grow (MessageQ_Object * obj)
+static UInt16 _MessageQ_grow (MessageQ_Object * obj)
 {
     UInt16            queueIndex = MessageQ_module->numQueues;
     UInt16            oldSize;
@@ -1223,26 +998,174 @@ _MessageQ_grow (MessageQ_Object * obj)
     return (queueIndex);
 }
 
-
 /*
  * This is a helper function to initialize a message.
  */
-static
-Void
-MessageQ_msgInit (MessageQ_Msg msg)
+static Void MessageQ_msgInit (MessageQ_Msg msg)
 {
-
     msg->reserved0 = 0;  /* We set this to distinguish from NameServerMsg */
-    msg->replyId = (UInt16) MessageQ_INVALIDMESSAGEQ;
-    msg->msgId   = MessageQ_INVALIDMSGID;
-    msg->dstId   = (UInt16) MessageQ_INVALIDMESSAGEQ;
-    msg->flags   =   MessageQ_HEADERVERSION
-                 | MessageQ_NORMALPRI;
-    msg->srcProc = MultiProc_self ();
+    msg->replyId   = (UInt16) MessageQ_INVALIDMESSAGEQ;
+    msg->msgId     = MessageQ_INVALIDMSGID;
+    msg->dstId     = (UInt16) MessageQ_INVALIDMESSAGEQ;
+    msg->flags     =   MessageQ_HEADERVERSION | MessageQ_NORMALPRI;
+    msg->srcProc   = MultiProc_self ();
 
     pthread_mutex_lock (&(MessageQ_module->gate));
     msg->seqNum  = MessageQ_module->seqNum++;
     pthread_mutex_unlock (&(MessageQ_module->gate));
-
 }
 
+/*
+ * =============================================================================
+ * Transport: Fxns kept here until need for a transport layer is realized.
+ * =============================================================================
+ */
+/*
+ * ======== transportCreateEndpoint ========
+ *
+ * Create a communication endpoint to receive messages.
+ */
+static Int transportCreateEndpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
+{
+    Int     	status    = MessageQ_S_SUCCESS;
+    int         err;
+
+    /*  Create the socket to receive messages for this messageQ. */
+    *fd = socket(AF_RPMSG, SOCK_SEQPACKET, 0);
+    if (*fd < 0) {
+       status = MessageQ_E_FAIL;
+       printf ("transportCreateEndpoint: socket call failed: %d, %s\n",
+                  errno, strerror(errno));
+       goto exit;
+    }
+
+#ifdef VERBOSE
+    printf ("transportCreateEndpoint: created socket: fd: %d\n", *fd);
+#endif
+
+    err = SocketBindAddr(*fd, rprocId, (UInt32)queueIndex);
+    if (err < 0) {
+       status = MessageQ_E_FAIL;
+       printf ("transportCreateEndpoint: bind failed: %d, %s\n",
+                  errno, strerror(errno));
+    }
+
+exit:
+    return (status);
+}
+
+/*
+ * ======== transportCloseEndpoint ========
+ *
+ *  Close the communication endpoint.
+ */
+static Int transportCloseEndpoint(int fd)
+{
+    Int     status    = MessageQ_S_SUCCESS;
+
+#ifdef VERBOSE
+    printf ("transportCloseEndpoint: closing socket: %d\n", fd);
+#endif
+
+    /* Stop communication to this socket:  */
+    close(fd);
+
+    return (status);
+}
+
+/*
+ * ======== transportGet ========
+ *  Retrieve a message waiting in the socket's queue.
+*/
+static Int transportGet(int sock, MessageQ_Msg * retMsg)
+{
+    Int           status    = MessageQ_S_SUCCESS;
+    MessageQ_Msg  msg;
+    struct sockaddr_rpmsg fromAddr;  // [Socket address of sender]
+    unsigned int  len;
+    int           byteCount;
+
+    /*
+     * Allocate a message of max size to receive contents from the rpmsg socket
+     * (currently, a copy transport)
+     */
+    msg = MessageQ_alloc (0, MESSAGEQ_RPMSG_MAXSIZE);
+    if (!msg)  {
+       status = MessageQ_E_MEMORY;
+       goto exit;
+    }
+
+    memset(&fromAddr, 0, sizeof(fromAddr));
+    len = sizeof(fromAddr);
+
+    byteCount = recvfrom(sock, msg, MESSAGEQ_RPMSG_MAXSIZE, 0,
+				(struct sockaddr *)&fromAddr, &len);
+    if (len != sizeof(fromAddr)) {
+        printf("recvfrom: got bad addr len (%d)\n", len);
+        status = MessageQ_E_FAIL;
+	goto exit;
+    }
+    if (byteCount < 0) {
+        printf("recvfrom failed: %s (%d)\n", strerror(errno), errno);
+        status = MessageQ_E_FAIL;
+	goto exit;
+    }
+    else {
+        /* Update the allocated message size (even though this may waste space
+         * when the actual message is smaller than the maximum rpmsg size,
+         * the message will be freed soon anyway, and it avoids an extra copy).
+         */
+         msg->msgSize = byteCount;
+    }
+
+#ifdef VERBOSE
+    printf ("transportGet: recvfrom socket: fd: %d\n", sock);
+    printf("\tReceived a msg: byteCount: %d, rpmsg addr: %d, rpmsg proc: %d\n",
+			byteCount, fromAddr.addr, fromAddr.vproc_id);
+    printf("\tMessage Id: %d, Message size: %d\n", msg->msgId, msg->msgSize);
+#endif
+
+    *retMsg = msg;
+
+exit:
+    return (status);
+}
+
+/*
+ * ======== transportPut ========
+ *
+ * Calls the socket API sendto() on the socket associated with
+ * with this destination procID.
+ * Currently, both local and remote messages are sent via the Socket ABI, so
+ * no local object lists are maintained here.
+*/
+static Int transportPut(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
+{
+    Int     status    = MessageQ_S_SUCCESS;
+    int     sock;
+    int     err;
+
+    /*
+     * Retrieve the socket for the AF_SYSLINK protocol associated with this
+     * transport.
+     */
+    sock = MessageQ_module->sock[dstProcId];
+
+#ifdef VERBOSE
+    printf("Sending msgId: %d via sock: %d\n", msg->msgId, sock);
+#endif
+    err = send(sock, msg, msg->msgSize, 0);
+    if (err < 0) {
+       printf ("transportPut: send failed: %d, %s\n",
+                  errno, strerror(errno));
+       status = MessageQ_E_FAIL;
+    }
+
+    /*
+     * Free the message, as this is a copy transport, we maintain MessageQ
+     * semantics.
+     */
+    MessageQ_free (msg);
+
+    return (status);
+}
