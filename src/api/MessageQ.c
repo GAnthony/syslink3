@@ -154,7 +154,7 @@
 #include <net/rpmsg.h>
 
 /* Socket utils: */
-#include "socketfxns.h"
+#include <SocketFxns.h>
 
 /* =============================================================================
  * Macros/Constants
@@ -305,7 +305,7 @@ int transport_create_endpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
     printf ("transport_create_endpoint: created socket: fd: %d\n", *fd);
 #endif
 
-    err = socket_bind_addr(*fd, rprocId, (UInt32)queueIndex);
+    err = SocketBindAddr(*fd, rprocId, (UInt32)queueIndex);
     if (err < 0) {
        status = MessageQ_E_FAIL;
        printf ("transport_create_endpoint: bind failed: %d, %s\n",
@@ -1122,7 +1122,7 @@ MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
 #endif
             MessageQ_module->sock[remoteProcId] = sock;
             /* Attempt to connect: */
-            if (connect_socket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT) == 0) {
+            if (ConnectSocket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT) == 0) {
                  MessageQ_module->connected[remoteProcId] = TRUE;
             }
         }

@@ -71,7 +71,7 @@
 #include <_NameServerRemoteRpmsg.h>
 
 /* Socket utils: */
-#include <socketfxns.h>
+#include <SocketFxns.h>
 
 #include <_lad.h>
 
@@ -435,7 +435,7 @@ NameServer_setup(Void)
         }
         else  {
             LOG1("NameServer_setup: created send socket: %d\n", sock)
-            err = connect_socket(sock, procId, MESSAGEQ_RPMSG_PORT);
+            err = ConnectSocket(sock, procId, MESSAGEQ_RPMSG_PORT);
             if (err < 0) {
                 status = NameServer_E_FAIL;
                 LOG2("NameServer_setup: connect failed: %d, %s\n",
@@ -459,7 +459,7 @@ NameServer_setup(Void)
         else  {
             LOG1("NameServer_setup: created recv socket: %d\n", sock)
 
-            err = socket_bind_addr(sock, procId, NAME_SERVER_RPMSG_ADDR);
+            err = SocketBindAddr(sock, procId, NAME_SERVER_RPMSG_ADDR);
             if (err < 0) {
                status = NameServer_E_FAIL;
                LOG2("NameServer_setup: bind failed: %d, %s\n",

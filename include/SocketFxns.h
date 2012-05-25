@@ -30,6 +30,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-extern int connect_socket(int sock, UInt16 procId, int dst);
-extern int socket_bind_addr(int fd, UInt16 rproc_id, UInt32 local_addr);
+extern int ConnectSocket(int sock, UInt16 procId, int dst);
+extern int SocketBindAddr(int fd, UInt16 rprocId, UInt32 localAddr);
 
