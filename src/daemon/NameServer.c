@@ -232,7 +232,7 @@ static UInt32 stringHash(String s)
         hash = (hash >> 8u) ^ stringCrcTab[(hash & 0xff)] ^ s[i];
     }
 
-    return hash;
+    return (hash);
 }
 
 static void NameServerRemote_processMessage(NameServerMsg * msg, UInt16 procId)
@@ -335,7 +335,7 @@ static void *listener_cb(void *arg)
             LOG0("listener_cb: select failed.")
             break;
         }
-	LOG0("NameServer: back from select()\n")
+        LOG0("NameServer: back from select()\n")
 
         for (procId = 0; procId < numProcs; procId++) {
             if (procId == MultiProc_self() ||
@@ -374,7 +374,7 @@ static void *listener_cb(void *arg)
         }
     } while (1);
 
-    return (void *)ret;
+    return ((void *)ret);
 }
 
 /* =============================================================================
@@ -383,8 +383,7 @@ static void *listener_cb(void *arg)
  */
 
 /* Function to setup the nameserver module. */
-Int
-NameServer_setup(Void)
+Int NameServer_setup(Void)
 {
     Int    status = NameServer_S_SUCCESS;
     int    err;
@@ -490,7 +489,7 @@ NameServer_setup(Void)
 exit:
     pthread_mutex_unlock(&NameServer_module->modGate);
 
-    return status;
+    return (status);
 }
 
 /*! Function to destroy the nameserver module. */
@@ -509,7 +508,7 @@ Int NameServer_destroy(void)
         LOG0("NameServer_destroy(): bad refCount: 0 (should be > 0)\n")
         status = NameServer_E_FAIL;
 
-	goto exit;
+       goto exit;
     }
 
     for (procId = 0; procId < numProcs; procId++) {
@@ -552,12 +551,11 @@ Int NameServer_destroy(void)
 exit:
     pthread_mutex_unlock(&NameServer_module->modGate);
 
-    return status;
+    return (status);
 }
 
 /* Function to retrieve a NameServer handle from name. */
-NameServer_Handle
-NameServer_getHandle(String name)
+NameServer_Handle NameServer_getHandle(String name)
 {
     NameServer_Handle handle = NULL;
     Bool              found = FALSE;
@@ -583,13 +581,13 @@ NameServer_getHandle(String name)
 
     pthread_mutex_unlock(&NameServer_module->modGate);
 
-    return handle;
+    return (handle);
 }
 
 
 /* Function to create a name server. */
-NameServer_Handle
-NameServer_create(String name, const NameServer_Params * params)
+NameServer_Handle NameServer_create(String name,
+                                    const NameServer_Params * params)
 {
     NameServer_Handle handle = NULL;
     pthread_mutexattr_t mutex_attr;
@@ -661,13 +659,12 @@ cleanup:
 leave:
     pthread_mutex_unlock(&NameServer_module->modGate);
 
-    return handle;
+    return (handle);
 }
 
 
 /* Function to delete a name server. */
-Int
-NameServer_delete(NameServer_Handle * handle)
+Int NameServer_delete(NameServer_Handle * handle)
 {
     Int status = NameServer_S_SUCCESS;
 
@@ -694,12 +691,11 @@ NameServer_delete(NameServer_Handle * handle)
 
     pthread_mutex_unlock(&NameServer_module->modGate);
 
-    return status;
+    return (status);
 }
 
 /* Adds a variable length value into the local NameServer table */
-Ptr
-NameServer_add(NameServer_Handle handle, String name, Ptr buf, UInt len)
+Ptr NameServer_add(NameServer_Handle handle, String name, Ptr buf, UInt len)
 {
     Int                 status = NameServer_S_SUCCESS;
     NameServer_TableEntry * node = NULL;
@@ -780,13 +776,12 @@ NameServer_add(NameServer_Handle handle, String name, Ptr buf, UInt len)
 exit:
     pthread_mutex_unlock(&handle->gate);
 
-    return new_node;
+    return (new_node);
 }
 
 
 /* Function to add a UInt32 value into a name server. */
-Ptr
-NameServer_addUInt32(NameServer_Handle handle, String name, UInt32 value)
+Ptr NameServer_addUInt32(NameServer_Handle handle, String name, UInt32 value)
 {
     Ptr entry = NULL;
 
@@ -796,12 +791,11 @@ NameServer_addUInt32(NameServer_Handle handle, String name, UInt32 value)
 
     entry = NameServer_add(handle, name, &value, sizeof(UInt32));
 
-    return entry;
+    return (entry);
 }
 
 /* Function to remove a name/value pair from a name server. */
-Int
-NameServer_remove(NameServer_Handle handle, String name)
+Int NameServer_remove(NameServer_Handle handle, String name)
 {
     Int                 status = NameServer_S_SUCCESS;
     NameServer_TableEntry *prev = NULL;
@@ -869,12 +863,11 @@ NameServer_remove(NameServer_Handle handle, String name)
 
     pthread_mutex_unlock(&handle->gate);
 
-    return status;
+    return (status);
 }
 
 /* Function to remove a name/value pair from a name server. */
-Int
-NameServer_removeEntry(NameServer_Handle handle, Ptr entry)
+Int NameServer_removeEntry(NameServer_Handle handle, Ptr entry)
 {
     Int  status = NameServer_S_SUCCESS;
     NameServer_TableEntry * node;
@@ -895,15 +888,14 @@ NameServer_removeEntry(NameServer_Handle handle, Ptr entry)
 
     pthread_mutex_unlock(&handle->gate);
 
-    return status;
+    return (status);
 }
 
 
 /* Initialize this config-params structure with supplier-specified
  * defaults before instance creation.
  */
-Void
-NameServer_Params_init(NameServer_Params * params)
+Void NameServer_Params_init(NameServer_Params * params)
 {
     assert(params != NULL);
 
@@ -912,8 +904,7 @@ NameServer_Params_init(NameServer_Params * params)
 }
 
 
-Int
-NameServer_getRemote(NameServer_Handle handle,
+Int NameServer_getRemote(NameServer_Handle handle,
                      String            name,
                      Ptr               value,
                      UInt32 *          len,
@@ -1005,14 +996,13 @@ NameServer_getRemote(NameServer_Handle handle,
     }
 
 exit:
-    return status;
+    return (status);
 }
 
 /* Function to retrieve the value portion of a name/value pair from
  * local table.
  */
-Int
-NameServer_get(NameServer_Handle handle,
+Int NameServer_get(NameServer_Handle handle,
                String            name,
                Ptr               value,
                UInt32 *          len,
@@ -1022,7 +1012,8 @@ NameServer_get(NameServer_Handle handle,
     UInt16 numProcs = MultiProc_getNumProcessors();
     UInt32 i;
 
-    /* BIOS side uses a gate (mutex) to protect NameServer_module->nsMsg, but
+    /*
+     * BIOS side uses a gate (mutex) to protect NameServer_module->nsMsg, but
      * since this goes in a daemon, it will not be necessary.
      */
 
@@ -1067,12 +1058,11 @@ NameServer_get(NameServer_Handle handle,
         }
     }
 
-    return status;
+    return (status);
 }
 
 /* Gets a 32-bit value by name */
-Int
-NameServer_getUInt32(NameServer_Handle handle,
+Int NameServer_getUInt32(NameServer_Handle handle,
                      String            name,
                      Ptr               value,
                      UInt16            procId[])
@@ -1087,14 +1077,13 @@ NameServer_getUInt32(NameServer_Handle handle,
 
     status = NameServer_get(handle, name, value, &len, procId);
 
-    return status;
+    return (status);
 }
 
 /* Function to Retrieve the value portion of a name/value pair from
  * local table.
  */
-Int
-NameServer_getLocal(NameServer_Handle handle,
+Int NameServer_getLocal(NameServer_Handle handle,
                     String            name,
                     Ptr               value,
                     UInt32 *          len)
@@ -1167,7 +1156,7 @@ NameServer_getLocal(NameServer_Handle handle,
         status = NameServer_S_SUCCESS;
     }
 
-    return status;
+    return (status);
 }
 
 /*
@@ -1183,8 +1172,7 @@ NameServer_getLocal(NameServer_Handle handle,
  *  This function only searches the local name/value table.
  *
  */
-Int
-NameServer_getLocalUInt32(NameServer_Handle handle, String name, Ptr value)
+Int NameServer_getLocalUInt32(NameServer_Handle handle, String name, Ptr value)
 {
     Int                 status;
     UInt32              len    = sizeof(UInt32);
@@ -1197,7 +1185,7 @@ NameServer_getLocalUInt32(NameServer_Handle handle, String name, Ptr value)
     LOG0("NameServer_getLocalUInt32: calling NameServer_getLocal()...\n")
     status = NameServer_getLocal(handle, name, value, &len);
 
-    return status;
+    return (status);
 }
 
 

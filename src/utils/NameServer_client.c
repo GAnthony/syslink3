@@ -52,7 +52,7 @@
 static Bool verbose = FALSE;
 
 typedef struct _LAD_ClientInfo {
-    Bool connectedToLAD;			  /* connection status */
+    Bool connectedToLAD;               /* connection status */
     UInt PID;                                     /* client's process ID */
     Char responseFIFOName[LAD_MAXLENGTHFIFONAME]; /* response FIFO name */
     FILE *responseFIFOFilePtr;                    /* FIFO file pointer */
@@ -87,8 +87,7 @@ static pthread_mutex_t modGate  = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
  * Returns either the found "handle", or LAD_MAXNUMCLIENTS if the handle
  * can't be found.
  */
-LAD_ClientHandle
-findHandle(Void)
+LAD_ClientHandle findHandle(Void)
 {
     Int i;
     Int pid;
@@ -111,8 +110,7 @@ findHandle(Void)
  * implemented as a daemon process ala LAD).
  */
 
-Int
-NameServer_setup(Void)
+Int NameServer_setup(Void)
 {
     Int status;
     LAD_ClientHandle handle;
@@ -121,7 +119,9 @@ NameServer_setup(Void)
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_setup: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+          "NameServer_setup: can't find connection to daemon for pid %d\n",
+           getpid())
 
         return NameServer_E_RESOURCE;
     }
@@ -130,7 +130,8 @@ NameServer_setup(Void)
     cmd.clientId = handle;
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_setup: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_setup: sending LAD command failed, status=%d\n", status)
         return NameServer_E_FAIL;
     }
 
@@ -140,13 +141,14 @@ NameServer_setup(Void)
     }
     status = rsp.status;
 
-    PRINTVERBOSE2("NameServer_setup: got LAD response for client %d, status=%d\n", handle, status)
+    PRINTVERBOSE2(
+      "NameServer_setup: got LAD response for client %d, status=%d\n",
+      handle, status)
 
     return status;
 }
 
-Int
-NameServer_destroy(Void)
+Int NameServer_destroy(Void)
 {
     Int status;
     LAD_ClientHandle handle;
@@ -158,7 +160,9 @@ NameServer_destroy(Void)
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_destroy: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+          "NameServer_destroy: can't find connection to daemon for pid %d\n",
+          getpid())
 
         return NameServer_E_RESOURCE;
     }
@@ -167,23 +171,26 @@ NameServer_destroy(Void)
     cmd.clientId = handle;
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_destroy: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_destroy: sending LAD command failed, status=%d\n", status)
         return NameServer_E_FAIL;
     }
 
     if ((status = getResponse(handle, &rsp)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_destroy: no LAD response, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_destroy: no LAD response, status=%d\n", status)
         return(status);
     }
     status = rsp.status;
 
-    PRINTVERBOSE2("NameServer_destroy: got LAD response for client %d, status=%d\n", handle, status)
+    PRINTVERBOSE2(
+     "NameServer_destroy: got LAD response for client %d, status=%d\n",
+     handle, status)
 
     return status;
 }
 
-Void
-NameServer_Params_init(NameServer_Params *params)
+Void NameServer_Params_init(NameServer_Params *params)
 {
     Int status;
     LAD_ClientHandle handle;
@@ -192,7 +199,9 @@ NameServer_Params_init(NameServer_Params *params)
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_Params_init: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+         "NameServer_Params_init: can't find connection to daemon for pid %d\n",
+         getpid())
 
         return;
     }
@@ -201,24 +210,28 @@ NameServer_Params_init(NameServer_Params *params)
     cmd.clientId = handle;
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_Params_init: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_Params_init: sending LAD command failed, status=%d\n",
+          status)
         return;
     }
 
     if ((status = getResponse(handle, &rsp)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_Params_init: no LAD response, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_Params_init: no LAD response, status=%d\n", status)
         return;
     }
 
-    PRINTVERBOSE1("NameServer_Params_init: got LAD response for client %d\n", handle)
+    PRINTVERBOSE1("NameServer_Params_init: got LAD response for client %d\n",
+                  handle)
 
     memcpy(params, &rsp.params, sizeof(NameServer_Params));
 
     return;
 }
 
-NameServer_Handle
-NameServer_create(String name, const NameServer_Params *params)
+NameServer_Handle NameServer_create(String name,
+                                    const NameServer_Params *params)
 {
     Int status;
     LAD_ClientHandle handle;
@@ -227,7 +240,9 @@ NameServer_create(String name, const NameServer_Params *params)
 
     handle = findHandle();
     if (handle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_create: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+          "NameServer_create: can't find connection to daemon for pid %d\n",
+          getpid())
 
         return NULL;
     }
@@ -238,7 +253,9 @@ NameServer_create(String name, const NameServer_Params *params)
     memcpy(&cmd.args.create.params, params, sizeof(NameServer_Params));
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_create: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_create: sending LAD command failed, status=%d\n",
+          status)
         return NULL;
     }
 
@@ -252,8 +269,7 @@ NameServer_create(String name, const NameServer_Params *params)
     return rsp.handle;
 }
 
-Ptr
-NameServer_addUInt32(NameServer_Handle nsHandle, String name, UInt32 value)
+Ptr NameServer_addUInt32(NameServer_Handle nsHandle, String name, UInt32 value)
 {
     Int status;
     LAD_ClientHandle clHandle;
@@ -262,7 +278,9 @@ NameServer_addUInt32(NameServer_Handle nsHandle, String name, UInt32 value)
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_addUInt32: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+          "NameServer_addUInt32: can't find connection to daemon for pid %d\n",
+          getpid())
 
         return NULL;
     }
@@ -274,22 +292,26 @@ NameServer_addUInt32(NameServer_Handle nsHandle, String name, UInt32 value)
     cmd.args.addUInt32.val = value;
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_addUInt32: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_addUInt32: sending LAD command failed, status=%d\n",
+          status)
         return NULL;
     }
 
     if ((status = getResponse(clHandle, &rsp)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_addUInt32: no LAD response, status=%d\n", status)
+        PRINTVERBOSE1(
+           "NameServer_addUInt32: no LAD response, status=%d\n", status)
         return NULL;
     }
 
-    PRINTVERBOSE1("NameServer_addUInt32: got LAD response for client %d\n", clHandle)
+    PRINTVERBOSE1(
+       "NameServer_addUInt32: got LAD response for client %d\n", clHandle)
 
     return rsp.entryPtr;
 }
 
-Int
-NameServer_getUInt32(NameServer_Handle nsHandle, String name, Ptr buf, UInt16 procId[])
+Int NameServer_getUInt32(NameServer_Handle nsHandle, String name, Ptr buf,
+                          UInt16 procId[])
 {
     Int status;
     LAD_ClientHandle clHandle;
@@ -299,7 +321,9 @@ NameServer_getUInt32(NameServer_Handle nsHandle, String name, Ptr buf, UInt16 pr
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_getUInt32: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+          "NameServer_getUInt32: can't find connection to daemon for pid %d\n",
+           getpid())
 
         return NameServer_E_RESOURCE;
     }
@@ -317,12 +341,15 @@ NameServer_getUInt32(NameServer_Handle nsHandle, String name, Ptr buf, UInt16 pr
     }
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_getUInt32: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+           "NameServer_getUInt32: sending LAD command failed, status=%d\n",
+            status)
         return NameServer_E_FAIL;
     }
 
     if ((status = getResponse(clHandle, &rsp)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_getUInt32: no LAD response, status=%d\n", status)
+        PRINTVERBOSE1("NameServer_getUInt32: no LAD response, status=%d\n",
+                       status)
         return NameServer_E_FAIL;
     }
 
@@ -330,13 +357,13 @@ NameServer_getUInt32(NameServer_Handle nsHandle, String name, Ptr buf, UInt16 pr
     *val = rsp.getUInt32.val;
     status = rsp.status;
 
-    PRINTVERBOSE1("NameServer_getUInt32: got LAD response for client %d\n", clHandle)
+    PRINTVERBOSE1("NameServer_getUInt32: got LAD response for client %d\n",
+                   clHandle)
 
     return status;
 }
 
-Int
-NameServer_remove(NameServer_Handle nsHandle, String name)
+Int NameServer_remove(NameServer_Handle nsHandle, String name)
 {
     Int status;
     LAD_ClientHandle clHandle;
@@ -345,7 +372,9 @@ NameServer_remove(NameServer_Handle nsHandle, String name)
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_remove: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+         "NameServer_remove: can't find connection to daemon for pid %d\n",
+         getpid())
 
         return NameServer_E_RESOURCE;
     }
@@ -356,7 +385,9 @@ NameServer_remove(NameServer_Handle nsHandle, String name)
     strncpy(cmd.args.remove.name, name, NameServer_Params_MAXNAMELEN);
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_remove: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+         "NameServer_remove: sending LAD command failed, status=%d\n",
+         status)
         return NameServer_E_FAIL;
     }
 
@@ -367,13 +398,13 @@ NameServer_remove(NameServer_Handle nsHandle, String name)
 
     status = rsp.status;
 
-    PRINTVERBOSE1("NameServer_remove: got LAD response for client %d\n", clHandle)
+    PRINTVERBOSE1("NameServer_remove: got LAD response for client %d\n",
+                   clHandle)
 
     return status;
 }
 
-Int
-NameServer_removeEntry(NameServer_Handle nsHandle, Ptr entry)
+Int NameServer_removeEntry(NameServer_Handle nsHandle, Ptr entry)
 {
     Int status;
     LAD_ClientHandle clHandle;
@@ -382,7 +413,9 @@ NameServer_removeEntry(NameServer_Handle nsHandle, Ptr entry)
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_removeEntry: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+         "NameServer_removeEntry: can't find connection to daemon for pid %d\n",
+         getpid())
 
         return NameServer_E_RESOURCE;
     }
@@ -393,24 +426,27 @@ NameServer_removeEntry(NameServer_Handle nsHandle, Ptr entry)
     cmd.args.removeEntry.entryPtr = entry;
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_removeEntry: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_removeEntry: sending LAD command failed, status=%d\n",
+          status)
         return NameServer_E_FAIL;
     }
 
     if ((status = getResponse(clHandle, &rsp)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_removeEntry: no LAD response, status=%d\n", status)
+        PRINTVERBOSE1("NameServer_removeEntry: no LAD response, status=%d\n",
+                       status)
         return NameServer_E_FAIL;
     }
 
     status = rsp.status;
 
-    PRINTVERBOSE1("NameServer_removeEntry: got LAD response for client %d\n", clHandle)
+    PRINTVERBOSE1("NameServer_removeEntry: got LAD response for client %d\n",
+                   clHandle)
 
     return status;
 }
 
-Int
-NameServer_delete(NameServer_Handle *nsHandle)
+Int NameServer_delete(NameServer_Handle *nsHandle)
 {
     Int status;
     LAD_ClientHandle clHandle;
@@ -419,7 +455,9 @@ NameServer_delete(NameServer_Handle *nsHandle)
 
     clHandle = findHandle();
     if (clHandle == LAD_MAXNUMCLIENTS) {
-        PRINTVERBOSE1("NameServer_delete: can't find connection to daemon for pid %d\n", getpid())
+        PRINTVERBOSE1(
+          "NameServer_delete: can't find connection to daemon for pid %d\n",
+          getpid())
 
         return NameServer_E_RESOURCE;
     }
@@ -429,7 +467,9 @@ NameServer_delete(NameServer_Handle *nsHandle)
     cmd.args.delete.handle = *nsHandle;
 
     if ((status = putCommand(&cmd)) != LAD_SUCCESS) {
-        PRINTVERBOSE1("NameServer_delete: sending LAD command failed, status=%d\n", status)
+        PRINTVERBOSE1(
+          "NameServer_delete: sending LAD command failed, status=%d\n",
+          status)
         return NameServer_E_FAIL;
     }
 
@@ -441,7 +481,8 @@ NameServer_delete(NameServer_Handle *nsHandle)
     *nsHandle = rsp.delete.handle;
     status = rsp.status;
 
-    PRINTVERBOSE1("NameServer_delete: got LAD response for client %d\n", clHandle)
+    PRINTVERBOSE1("NameServer_delete: got LAD response for client %d\n",
+                   clHandle)
 
     return status;
 }
@@ -542,14 +583,16 @@ LAD_Status  LAD_connect(LAD_ClientHandle * handle)
             strcpy(clientInfo[assignedId].responseFIFOName, responseFIFOName);
             clientInfo[assignedId].connectedToLAD = TRUE;
 
-            PRINTVERBOSE1("    status == LAD_SUCCESS, assignedId=%d\n", assignedId);
+            PRINTVERBOSE1("    status == LAD_SUCCESS, assignedId=%d\n",
+                          assignedId);
         }
         else {
             PRINTVERBOSE1("    status != LAD_SUCCESS (status=%d)\n", status);
         }
     }
     else {
-        PRINTVERBOSE0("\nLAD_connect: 0 bytes read when getting LAD response!\n")
+        PRINTVERBOSE0(
+          "\nLAD_connect: 0 bytes read when getting LAD response!\n")
         status = LAD_IOFAILURE;
     }
 
@@ -610,7 +653,7 @@ LAD_Status  LAD_disconnect(LAD_ClientHandle handle)
 
         /* check to see if LAD has shutdown FIFO yet... */
         if (stat(clientInfo[handle].responseFIFOName, &statBuf) != 0) {
-            waiting = FALSE;	        /* yes, so done */
+            waiting = FALSE;            /* yes, so done */
         }
         /* if not, check for timeout */
         else {
@@ -639,7 +682,8 @@ static LAD_Status getResponse(LAD_ClientHandle handle,
 
     PRINTVERBOSE1("getResponse: client = %d\n", handle)
 
-    n = fread(rsp, LAD_RESPONSELENGTH, 1, clientInfo[handle].responseFIFOFilePtr);
+    n = fread(rsp, LAD_RESPONSELENGTH, 1,
+             clientInfo[handle].responseFIFOFilePtr);
 
     pthread_mutex_unlock(&modGate);
 

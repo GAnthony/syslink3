@@ -115,7 +115,7 @@ static Void * pingThreadFxn(void *arg)
     /* Poll until remote side has it's messageQ created before we send: */
     do {
         status = MessageQ_open (remoteQueueName, &queueId);
-	sleep (1);
+        sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
         printf ("Error in MessageQ_open [0x%x]\n", status);
@@ -129,43 +129,43 @@ static Void * pingThreadFxn(void *arg)
     printf ("\nthread: %d: Exchanging messages with remote processor...\n",
             threadNum);
     for (i = 0 ; i < numLoops ; i++) {
-          /* Allocate message. */
-          msg = MessageQ_alloc (HEAPID, MSGSIZE);
-          if (msg == NULL) {
-              printf ("Error in MessageQ_alloc\n");
-              break;
-          }
+        /* Allocate message. */
+        msg = MessageQ_alloc (HEAPID, MSGSIZE);
+        if (msg == NULL) {
+            printf ("Error in MessageQ_alloc\n");
+            break;
+        }
 
-          MessageQ_setMsgId (msg, i);
+        MessageQ_setMsgId (msg, i);
 
-          /* Have the remote proc reply to this message queue */
-          MessageQ_setReplyQueue (handle, msg);
+        /* Have the remote proc reply to this message queue */
+        MessageQ_setReplyQueue (handle, msg);
 
-          status = MessageQ_put (queueId, msg);
-          if (status < 0) {
-              printf ("Error in MessageQ_put [0x%x]\n", status);
-              break;
-          }
+        status = MessageQ_put (queueId, msg);
+        if (status < 0) {
+            printf ("Error in MessageQ_put [0x%x]\n", status);
+            break;
+        }
 
-          status = MessageQ_get(handle, &msg, MessageQ_FOREVER);
-          if (status < 0) {
-              printf ("Error in MessageQ_get [0x%x]\n", status);
-              break;
-          }
-          else {
-              /* Validate the returned message. */
-              if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
-                  printf ("Data integrity failure!\n"
-                          "    Expected %d\n"
-                          "    Received %d\n",
-                          i, MessageQ_getMsgId (msg));
-                  break;
-              }
+        status = MessageQ_get(handle, &msg, MessageQ_FOREVER);
+        if (status < 0) {
+            printf ("Error in MessageQ_get [0x%x]\n", status);
+            break;
+        }
+        else {
+            /* Validate the returned message. */
+            if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
+                printf ("Data integrity failure!\n"
+                        "    Expected %d\n"
+                        "    Received %d\n",
+                        i, MessageQ_getMsgId (msg));
+                break;
+            }
 
-              status = MessageQ_free (msg);
-          }
+            status = MessageQ_free (msg);
+        }
 
-          printf ("thread: %d: Exchanged %d msgs\n", threadNum, (i+1));
+        printf ("thread: %d: Exchanged %d msgs\n", threadNum, (i+1));
     }
 
     printf ("thread: %d: pingThreadFxn successfully completed!\n", threadNum);
@@ -215,8 +215,8 @@ int main (int argc, char ** argv)
 
     status = SysLink_setup();
     if (status < 0) {
-       printf ("SysLink_setup failed: status = 0x%x\n", status);
-       goto exit;
+        printf ("SysLink_setup failed: status = 0x%x\n", status);
+        goto exit;
     }
 
     /* Launch multiple threads: */

@@ -150,7 +150,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-/* SysLink Socket Protocol	Family */
+/* SysLink Socket Protocol Family */
 #include <net/rpmsg.h>
 
 /* Socket utils: */
@@ -363,7 +363,7 @@ Int MessageQ_destroy (void)
         for (i = 0; i< MessageQ_module->numQueues; i++) {
             if (MessageQ_module->queues [i] != NULL) {
                 tmpStatus = MessageQ_delete (&(MessageQ_module->queues [i]));
-              }
+            }
         }
     }
 
@@ -382,12 +382,12 @@ Int MessageQ_destroy (void)
 
     /* Assert that all sockets have already been closed. */
     for (i = 0; i < MultiProc_MAXPROCESSORS; i++) {
-       assert(MessageQ_module->sock[i] == Transport_INVALIDSOCKET);
+        assert(MessageQ_module->sock[i] == Transport_INVALIDSOCKET);
     }
 
     if (MessageQ_module->queues != NULL) {
-       free (MessageQ_module->queues);
-       MessageQ_module->queues = NULL;
+        free (MessageQ_module->queues);
+        MessageQ_module->queues = NULL;
     }
 
     memset (&MessageQ_module->cfg, 0, sizeof (MessageQ_Config));
@@ -438,10 +438,10 @@ MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
     /* We start from 1, as 0 is reserved for binding NameServer: */
     for (i = RESERVED_MSGQ_INDEX; i < count ; i++) {
         if (MessageQ_module->queues [i] == NULL) {
-              MessageQ_module->queues [i] = (MessageQ_Handle) obj;
-              queueIndex = i;
-              found = TRUE;
-              break;
+            MessageQ_module->queues [i] = (MessageQ_Handle) obj;
+            queueIndex = i;
+            found = TRUE;
+            break;
         }
     }
 
@@ -454,7 +454,7 @@ MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
 
     if (params != NULL) {
        /* Populate the params member */
-       memcpy((Ptr) &obj->params, (Ptr)params, sizeof (MessageQ_Params));
+        memcpy((Ptr) &obj->params, (Ptr)params, sizeof (MessageQ_Params));
     }
 
     procId = MultiProc_self ();
@@ -462,8 +462,8 @@ MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
     obj->queue = (MessageQ_QueueId)(((UInt32)(procId) << 16) | queueIndex);
 
     if (name != NULL) {
-       obj->nsKey = NameServer_addUInt32(MessageQ_module->nameServer, name,
-                                  obj->queue);
+        obj->nsKey = NameServer_addUInt32(MessageQ_module->nameServer, name,
+                                          obj->queue);
     }
 
     /*
@@ -484,7 +484,7 @@ MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
         status = transportCreateEndpoint(&obj->fd[rprocId], rprocId,
                                            queueIndex);
         if (status < 0) {
-	    goto cleanup;
+           goto cleanup;
         }
     }
 
@@ -532,16 +532,16 @@ Int MessageQ_delete (MessageQ_Handle * handlePtr)
     }
 
     if (obj->nsKey != NULL) {
-          /* Remove from the name server */
-          status = NameServer_removeEntry (MessageQ_module->nameServer,
-                                           obj->nsKey);
-          if (status < 0) {
-              /* Override with a MessageQ status code. */
-              status = MessageQ_E_FAIL;
-          }
-          else {
-              status = MessageQ_S_SUCCESS;
-          }
+        /* Remove from the name server */
+        status = NameServer_removeEntry (MessageQ_module->nameServer,
+                                         obj->nsKey);
+        if (status < 0) {
+            /* Override with a MessageQ status code. */
+            status = MessageQ_E_FAIL;
+        }
+        else {
+            status = MessageQ_S_SUCCESS;
+        }
     }
 
     pthread_mutex_lock (&(MessageQ_module->gate));
@@ -574,24 +574,24 @@ Int MessageQ_open (String name, MessageQ_QueueId * queueId)
                                      name, queueId, NULL);
 
     if (status == NameServer_E_NOTFOUND) {
-          /* Set return queue ID to invalid. */
-          *queueId = MessageQ_INVALIDMESSAGEQ;
-          status = MessageQ_E_NOTFOUND;
+        /* Set return queue ID to invalid. */
+        *queueId = MessageQ_INVALIDMESSAGEQ;
+        status = MessageQ_E_NOTFOUND;
     }
     else if (status >= 0) {
-          /* Override with a MessageQ status code. */
-          status = MessageQ_S_SUCCESS;
+        /* Override with a MessageQ status code. */
+        status = MessageQ_S_SUCCESS;
     }
     else {
-          /* Set return queue ID to invalid. */
-          *queueId = MessageQ_INVALIDMESSAGEQ;
-          /* Override with a MessageQ status code. */
-          if (status == NameServer_E_TIMEOUT) {
-              status = MessageQ_E_TIMEOUT;
-          }
-          else {
-              status = MessageQ_E_FAIL;
-          }
+        /* Set return queue ID to invalid. */
+        *queueId = MessageQ_INVALIDMESSAGEQ;
+        /* Override with a MessageQ status code. */
+        if (status == NameServer_E_TIMEOUT) {
+            status = MessageQ_E_TIMEOUT;
+        }
+        else {
+            status = MessageQ_E_FAIL;
+        }
     }
 
     return (status);
@@ -669,20 +669,20 @@ Int MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
     FD_SET(obj->unblockFd, &rfds);
 
     if (timeout == MessageQ_FOREVER) {
-       timevalPtr = NULL;
+        timevalPtr = NULL;
     }
     else {
-       /* Timeout given in msec: convert:  */
-       tv.tv_sec = timeout / 1000;
-       tv.tv_usec = (timeout % 1000) * 1000;
-       timevalPtr = &tv;
+        /* Timeout given in msec: convert:  */
+        tv.tv_sec = timeout / 1000;
+        tv.tv_usec = (timeout % 1000) * 1000;
+        timevalPtr = &tv;
     }
     /* Add one to last fd created: */
     nfds = MAX(maxfd, obj->unblockFd) + 1;
 
     retval = select(nfds, &rfds, NULL, NULL, timevalPtr);
     if (retval)  {
-       if (FD_ISSET(obj->unblockFd, &rfds))  {
+        if (FD_ISSET(obj->unblockFd, &rfds))  {
             /*
              * Our event was signalled by MessageQ_unblock().
              *
@@ -691,10 +691,10 @@ Int MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
              * any pending messages in the transport's queue.
              * Thus, we shall not check for nor return any messages.
              */
-             *msg = NULL;
-             status = MessageQ_E_UNBLOCKED;
-       }
-       else {
+            *msg = NULL;
+            status = MessageQ_E_UNBLOCKED;
+        }
+        else {
             for (rprocId = 0; rprocId < MultiProc_getNumProcessors();
                  rprocId++) {
                 if (rprocId == MultiProc_self()) {
@@ -709,11 +709,11 @@ Int MessageQ_get (MessageQ_Handle handle, MessageQ_Msg * msg ,UInt timeout)
                     }
                 }
             }
-       }
+        }
     }
     else if (retval == 0) {
-       *msg = NULL;
-       status = MessageQ_E_TIMEOUT;
+        *msg = NULL;
+        status = MessageQ_E_TIMEOUT;
     }
 
     return (status);
@@ -784,10 +784,10 @@ Int MessageQ_free (MessageQ_Msg msg)
 
     /* Check to ensure this was not allocated by user: */
     if (msg->heapId == MessageQ_STATICMSG)  {
-       status =  MessageQ_E_CANNOTFREESTATICMSG;
+        status =  MessageQ_E_CANNOTFREESTATICMSG;
     }
     else {
-       free (msg);
+        free (msg);
     }
 
     return status;
@@ -940,9 +940,9 @@ Int MessageQ_detach (UInt16 remoteProcId)
     }
     else {
 #ifdef VERBOSE
-       printf ("MessageQ_detach: closed socket: %d\n", sock);
+        printf ("MessageQ_detach: closed socket: %d\n", sock);
 #endif
-       MessageQ_module->sock[remoteProcId] = Transport_INVALIDSOCKET;
+        MessageQ_module->sock[remoteProcId] = Transport_INVALIDSOCKET;
     }
 
     pthread_mutex_unlock (&(MessageQ_module->gate));
@@ -985,10 +985,10 @@ static UInt16 _MessageQ_grow (MessageQ_Object * obj)
 
     /* Delete old table if not statically defined */
     if (MessageQ_module->canFreeQueues == TRUE) {
-          free (oldQueues);
+        free (oldQueues);
     }
     else {
-          MessageQ_module->canFreeQueues = TRUE;
+        MessageQ_module->canFreeQueues = TRUE;
     }
 
 #ifdef VERBOSE
@@ -1027,16 +1027,16 @@ static Void MessageQ_msgInit (MessageQ_Msg msg)
  */
 static Int transportCreateEndpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
 {
-    Int     	status    = MessageQ_S_SUCCESS;
+    Int          status    = MessageQ_S_SUCCESS;
     int         err;
 
     /*  Create the socket to receive messages for this messageQ. */
     *fd = socket(AF_RPMSG, SOCK_SEQPACKET, 0);
     if (*fd < 0) {
-       status = MessageQ_E_FAIL;
-       printf ("transportCreateEndpoint: socket call failed: %d, %s\n",
+        status = MessageQ_E_FAIL;
+        printf ("transportCreateEndpoint: socket call failed: %d, %s\n",
                   errno, strerror(errno));
-       goto exit;
+        goto exit;
     }
 
 #ifdef VERBOSE
@@ -1045,8 +1045,8 @@ static Int transportCreateEndpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
 
     err = SocketBindAddr(*fd, rprocId, (UInt32)queueIndex);
     if (err < 0) {
-       status = MessageQ_E_FAIL;
-       printf ("transportCreateEndpoint: bind failed: %d, %s\n",
+        status = MessageQ_E_FAIL;
+        printf ("transportCreateEndpoint: bind failed: %d, %s\n",
                   errno, strerror(errno));
     }
 
@@ -1061,7 +1061,7 @@ exit:
  */
 static Int transportCloseEndpoint(int fd)
 {
-    Int     status    = MessageQ_S_SUCCESS;
+    Int status = MessageQ_S_SUCCESS;
 
 #ifdef VERBOSE
     printf ("transportCloseEndpoint: closing socket: %d\n", fd);
@@ -1091,24 +1091,24 @@ static Int transportGet(int sock, MessageQ_Msg * retMsg)
      */
     msg = MessageQ_alloc (0, MESSAGEQ_RPMSG_MAXSIZE);
     if (!msg)  {
-       status = MessageQ_E_MEMORY;
-       goto exit;
+        status = MessageQ_E_MEMORY;
+        goto exit;
     }
 
     memset(&fromAddr, 0, sizeof(fromAddr));
     len = sizeof(fromAddr);
 
     byteCount = recvfrom(sock, msg, MESSAGEQ_RPMSG_MAXSIZE, 0,
-				(struct sockaddr *)&fromAddr, &len);
+                      (struct sockaddr *)&fromAddr, &len);
     if (len != sizeof(fromAddr)) {
         printf("recvfrom: got bad addr len (%d)\n", len);
         status = MessageQ_E_FAIL;
-	goto exit;
+        goto exit;
     }
     if (byteCount < 0) {
         printf("recvfrom failed: %s (%d)\n", strerror(errno), errno);
         status = MessageQ_E_FAIL;
-	goto exit;
+        goto exit;
     }
     else {
         /* Update the allocated message size (even though this may waste space
@@ -1121,7 +1121,7 @@ static Int transportGet(int sock, MessageQ_Msg * retMsg)
 #ifdef VERBOSE
     printf ("transportGet: recvfrom socket: fd: %d\n", sock);
     printf("\tReceived a msg: byteCount: %d, rpmsg addr: %d, rpmsg proc: %d\n",
-			byteCount, fromAddr.addr, fromAddr.vproc_id);
+                 byteCount, fromAddr.addr, fromAddr.vproc_id);
     printf("\tMessage Id: %d, Message size: %d\n", msg->msgId, msg->msgSize);
 #endif
 
@@ -1156,9 +1156,9 @@ static Int transportPut(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
 #endif
     err = send(sock, msg, msg->msgSize, 0);
     if (err < 0) {
-       printf ("transportPut: send failed: %d, %s\n",
+        printf ("transportPut: send failed: %d, %s\n",
                   errno, strerror(errno));
-       status = MessageQ_E_FAIL;
+        status = MessageQ_E_FAIL;
     }
 
     /*

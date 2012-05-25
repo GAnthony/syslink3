@@ -51,46 +51,46 @@
 
 int ConnectSocket(int sock, UInt16 procId, int dst)
 {
-	int                   err;
-	struct sockaddr_rpmsg srcAddr, dstAddr;
-	socklen_t             len;
+    int                   err;
+    struct sockaddr_rpmsg srcAddr, dstAddr;
+    socklen_t             len;
 
-	/* connect to remote service */
-	memset(&dstAddr, 0, sizeof(dstAddr));
-	dstAddr.family     = AF_RPMSG;
-        /* rpmsg "vproc_id" is one less than the MultiProc ID: */
-	dstAddr.vproc_id   = procId - 1;
-	dstAddr.addr       = dst;
+    /* connect to remote service */
+    memset(&dstAddr, 0, sizeof(dstAddr));
+    dstAddr.family     = AF_RPMSG;
+     /* rpmsg "vproc_id" is one less than the MultiProc ID: */
+    dstAddr.vproc_id   = procId - 1;
+    dstAddr.addr       = dst;
 
-	len = sizeof(struct sockaddr_rpmsg);
-	err = connect(sock, (struct sockaddr *)&dstAddr, len);
-	if (err < 0) {
-		printf("connect failed: %s (%d)\n", strerror(errno), errno);
-		return (-1);
-	}
+    len = sizeof(struct sockaddr_rpmsg);
+    err = connect(sock, (struct sockaddr *)&dstAddr, len);
+    if (err < 0) {
+         printf("connect failed: %s (%d)\n", strerror(errno), errno);
+         return (-1);
+    }
 
-	/* let's see what local address we got */
-	err = getsockname(sock, (struct sockaddr *)&srcAddr, &len);
-	if (err < 0) {
-		printf("getpeername failed: %s (%d)\n", strerror(errno), errno);
-		return (-1);
-	}
+    /* let's see what local address we got */
+    err = getsockname(sock, (struct sockaddr *)&srcAddr, &len);
+    if (err < 0) {
+         printf("getpeername failed: %s (%d)\n", strerror(errno), errno);
+         return (-1);
+    }
 
 #ifdef VERBOSE
-	printf("Connected over sock: %d\n\tdst vproc_id: %d, dst addr: %d\n",
-		     sock, dstAddr.vproc_id, dstAddr.addr);
+    printf("Connected over sock: %d\n\tdst vproc_id: %d, dst addr: %d\n",
+              sock, dstAddr.vproc_id, dstAddr.addr);
 
-	printf("\tsrc vproc_id: %d, src addr: %d\n",
-			srcAddr.vproc_id, srcAddr.addr);
+    printf("\tsrc vproc_id: %d, src addr: %d\n",
+              srcAddr.vproc_id, srcAddr.addr);
 #endif
 
-       return(0);
+    return(0);
 }
 
 int SocketBindAddr(int fd, UInt16 rprocId, UInt32 localAddr)
 {
     int         err;
-    socklen_t 	len;
+    socklen_t    len;
     struct sockaddr_rpmsg srcAddr;
 
     /* Now bind to the source address.   */
@@ -105,17 +105,17 @@ int SocketBindAddr(int fd, UInt16 rprocId, UInt32 localAddr)
     if (err >= 0) {
 #ifdef VERBOSE
         printf("socket_bind_addr: bound sock: %d\n\tto dst vproc_id: %d, "
-		"src addr: %d\n", fd, srcAddr.vproc_id, srcAddr.addr);
+            "src addr: %d\n", fd, srcAddr.vproc_id, srcAddr.addr);
 #endif
         /* let's see what local address we got */
         err = getsockname(fd, (struct sockaddr *)&srcAddr, &len);
         if (err < 0) {
-	    printf("getsockname failed: %s (%d)\n", strerror(errno), errno);
+           printf("getsockname failed: %s (%d)\n", strerror(errno), errno);
         }
 #ifdef VERBOSE
         else {
             printf("\tsrc vproc_id: %d, src addr: %d\n",
-		     srcAddr.vproc_id, srcAddr.addr);
+                 srcAddr.vproc_id, srcAddr.addr);
         }
 #endif
     }

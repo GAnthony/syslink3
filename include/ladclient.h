@@ -37,7 +37,7 @@
  *  @file       ti/dsplink/utils/ladclient/ladclient.h
  *
  *  @brief      The Link Arbiter Daemon (LAD) communication interface.
- *         	Provides wrapper functions to communicate with LAD, allowing
+ *          Provides wrapper functions to communicate with LAD, allowing
  *              a client to: establish a connection to LAD; and disconnect
  *              from LAD.
  */
@@ -58,16 +58,16 @@ extern "C" {
 
 /* LAD return codes */
 typedef enum {
-    LAD_SUCCESS = 0,		/**< success */
-    LAD_FAILURE,		/**< general failure */
-    LAD_INVALIDARG,		/**< invalid argument */
-    LAD_ACCESSDENIED,		/**< the request was denied */
-    LAD_IOFAILURE,		/**< communication failure */
-    LAD_NOTCONNECTED,		/**< not connected to LAD yet */
-    LAD_INVALIDVERSION		/**< unsupported communication protocol */
+    LAD_SUCCESS = 0,       /**< success */
+    LAD_FAILURE,      /**< general failure */
+    LAD_INVALIDARG,        /**< invalid argument */
+    LAD_ACCESSDENIED,      /**< the request was denied */
+    LAD_IOFAILURE,         /**< communication failure */
+    LAD_NOTCONNECTED,      /**< not connected to LAD yet */
+    LAD_INVALIDVERSION          /**< unsupported communication protocol */
 } LAD_Status;
 
-typedef UInt LAD_ClientHandle;	/**< handle for communicating with LAD  */
+typedef UInt LAD_ClientHandle;  /**< handle for communicating with LAD  */
 
 
 /*
@@ -86,10 +86,10 @@ typedef UInt LAD_ClientHandle;	/**< handle for communicating with LAD  */
  *              simultaneous client connections to LAD has been reached, and
  *              no more client handles are available.
  *  @retval     LAD_IOFAILURE    Unable to communicate with LAD, due to an
- *		OS-level I/O failure.  A full system reboot may be necessary.
+ *              OS-level I/O failure.  A full system reboot may be necessary.
  *  @retval     LAD_INVALIDVERSION    Unable to communicate with LAD due to a
- *		mismatch in the communication protocol between the client and
- *		LAD.
+ *              mismatch in the communication protocol between the client and
+ *              LAD.
  *
  *  @sa         LAD_disconnect().
  */
@@ -102,7 +102,7 @@ extern LAD_Status LAD_connect(LAD_ClientHandle * handle);
  *  @brief      Disconnect from LAD.
  *
  *  @param[in]  handle    The client handle, as returned from previous call to
- *            	LAD_connect().
+ *                        LAD_connect().
  *
  *  @retval     LAD_SUCCESS    Success.
  *  @retval     LAD_INVALIDARG    Invalid client handle.
@@ -111,7 +111,7 @@ extern LAD_Status LAD_connect(LAD_ClientHandle * handle);
  *              via a call to LAD_startupDsp, and must call LAD_releaseDsp
  *              before attempting to disconnect from LAD.
  *  @retval     LAD_IOFAILURE    Unable to communicate with LAD, due to an
- *		OS-level I/O failure, or timeout.  A full system reboot may be
+ *              OS-level I/O failure, or timeout.  A full system reboot may be
  *              necessary.
  *
  *  @sa         LAD_connect().

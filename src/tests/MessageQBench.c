@@ -112,55 +112,55 @@ MessageQApp_execute ()
     printf ("\nExchanging messages with remote processor...\n");
     for (i = 0 ; i < NUM_LOOPS ; i++) {
 
-          /* Allocate message. */
-          msg = MessageQ_alloc (HEAPID, MSGSIZE);
-          if (msg == NULL) {
-              printf ("Error in MessageQ_alloc\n");
-              break;
-          }
+        /* Allocate message. */
+        msg = MessageQ_alloc (HEAPID, MSGSIZE);
+        if (msg == NULL) {
+            printf ("Error in MessageQ_alloc\n");
+            break;
+        }
 
 
-          MessageQ_setMsgId (msg, i);
+        MessageQ_setMsgId (msg, i);
 
-          /* Have the remote proc reply to this message queue */
-          MessageQ_setReplyQueue (msgqHandle, msg);
+        /* Have the remote proc reply to this message queue */
+        MessageQ_setReplyQueue (msgqHandle, msg);
 
-          //if (i) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-          if (i) clock_gettime(CLOCK_REALTIME, &start);
+        //if (i) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+        if (i) clock_gettime(CLOCK_REALTIME, &start);
 
-          status = MessageQ_put (queueId, msg);
-          if (status < 0) {
-              printf ("Error in MessageQ_put [0x%x]\n", status);
-              break;
-          }
+        status = MessageQ_put (queueId, msg);
+        if (status < 0) {
+            printf ("Error in MessageQ_put [0x%x]\n", status);
+            break;
+        }
 
-          status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
-          if (status < 0) {
-              printf ("Error in MessageQ_get [0x%x]\n", status);
-              break;
-          }
-          else {
-              /* Validate the returned message. */
-              if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
-                  printf ("Data integrity failure!\n"
-                          "    Expected %d\n"
-                          "    Received %d\n",
-                          i, MessageQ_getMsgId (msg));
-                  break;
-              }
+        status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
+        if (status < 0) {
+            printf ("Error in MessageQ_get [0x%x]\n", status);
+            break;
+        }
+        else {
+            /* Validate the returned message. */
+            if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
+                printf ("Data integrity failure!\n"
+                        "    Expected %d\n"
+                        "    Received %d\n",
+                        i, MessageQ_getMsgId (msg));
+                break;
+            }
 
-              if (i) {
-		 /* we avoid the first datum, 'cause it's an outlier: */
-		 //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-		 clock_gettime(CLOCK_REALTIME, &end);
-                 delta = diff(start,end);
-                 elapsed += delta;
-	      }
+            if (i) {
+           /* we avoid the first datum, 'cause it's an outlier: */
+           //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+           clock_gettime(CLOCK_REALTIME, &end);
+               delta = diff(start,end);
+               elapsed += delta;
+           }
 
-              status = MessageQ_free (msg);
+            status = MessageQ_free (msg);
 
-          }
-          printf ("Message (%d) time: %ld usecs\n", i, delta);
+        }
+        printf ("Message (%d) time: %ld usecs\n", i, delta);
     }
 
     printf ("Sample application successfully completed!\n");
@@ -190,11 +190,11 @@ main (int argc, char ** argv)
     status = SysLink_setup();
 
     if (status >= 0) {
-       MessageQApp_execute();
-       SysLink_destroy();
+        MessageQApp_execute();
+        SysLink_destroy();
     }
     else {
-       printf ("SysLink_setup failed: status = 0x%x\n", status);
+        printf ("SysLink_setup failed: status = 0x%x\n", status);
     }
 
     return(0);

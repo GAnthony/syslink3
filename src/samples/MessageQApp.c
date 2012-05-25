@@ -73,13 +73,13 @@ MessageQApp_execute ()
     }
     else {
         printf ("Local MessageQId: 0x%x\n",
-            MessageQ_getQueueId(msgqHandle));
+        MessageQ_getQueueId(msgqHandle));
     }
 
     /* Poll until remote side has it's messageQ created before we send: */
     do {
         status = MessageQ_open (CORE0_MESSAGEQNAME, &queueId);
-	sleep (1);
+        sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
         printf ("Error in MessageQ_open [0x%x]\n", status);
@@ -91,45 +91,45 @@ MessageQApp_execute ()
 
     printf ("\nExchanging messages with remote processor...\n");
     for (i = 0 ; i < NUM_LOOPS ; i++) {
-          /* Allocate message. */
-          msg = MessageQ_alloc (HEAPID, MSGSIZE);
-          if (msg == NULL) {
-              printf ("Error in MessageQ_alloc\n");
-              break;
-          }
+        /* Allocate message. */
+        msg = MessageQ_alloc (HEAPID, MSGSIZE);
+        if (msg == NULL) {
+            printf ("Error in MessageQ_alloc\n");
+            break;
+        }
 
-          MessageQ_setMsgId (msg, i);
+        MessageQ_setMsgId (msg, i);
 
-          /* Have the remote proc reply to this message queue */
-          MessageQ_setReplyQueue (msgqHandle, msg);
+        /* Have the remote proc reply to this message queue */
+        MessageQ_setReplyQueue (msgqHandle, msg);
 
-          status = MessageQ_put (queueId, msg);
-          if (status < 0) {
-              printf ("Error in MessageQ_put [0x%x]\n", status);
-              break;
-          }
+        status = MessageQ_put (queueId, msg);
+        if (status < 0) {
+            printf ("Error in MessageQ_put [0x%x]\n", status);
+            break;
+        }
 
-          status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
-          if (status < 0) {
-              printf ("Error in MessageQ_get [0x%x]\n", status);
-              break;
-          }
-          else {
-              printf ("MessageQ_get #%d Msg = 0x%x\n", i, (UInt)msg);
+        status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
+        if (status < 0) {
+            printf ("Error in MessageQ_get [0x%x]\n", status);
+            break;
+        }
+        else {
+            printf ("MessageQ_get #%d Msg = 0x%x\n", i, (UInt)msg);
 
-              /* Validate the returned message. */
-              if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
-                  printf ("Data integrity failure!\n"
-                          "    Expected %d\n"
-                          "    Received %d\n",
-                          i, MessageQ_getMsgId (msg));
-                  break;
-              }
+            /* Validate the returned message. */
+            if ((msg != NULL) && (MessageQ_getMsgId (msg) != i)) {
+                printf ("Data integrity failure!\n"
+                        "    Expected %d\n"
+                        "    Received %d\n",
+                        i, MessageQ_getMsgId (msg));
+                break;
+            }
 
-              status = MessageQ_free (msg);
-          }
+            status = MessageQ_free (msg);
+        }
 
-          printf ("Exchanged %d messages with remote processor\n", (i+1));
+        printf ("Exchanged %d messages with remote processor\n", (i+1));
     }
 
     if (status >= 0) {
@@ -151,19 +151,18 @@ exit:
     return (status);
 }
 
-int
-main (int argc, char ** argv)
+int main (int argc, char ** argv)
 {
     Int32   status = 0;
 
     status = SysLink_setup();
 
     if (status >= 0) {
-       MessageQApp_execute();
-       SysLink_destroy();
+        MessageQApp_execute();
+        SysLink_destroy();
     }
     else {
-       printf ("SysLink_setup failed: status = 0x%x\n", status);
+        printf ("SysLink_setup failed: status = 0x%x\n", status);
     }
 
     return(0);

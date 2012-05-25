@@ -89,7 +89,7 @@ MessageQApp_execute ()
     /* Poll until remote side has it's messageQ created before we send: */
     do {
         status = MessageQ_open (CORE0_MESSAGEQNAME, &queueId);
-	sleep (1);
+        sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
         printf ("Error in MessageQ_open [0x%x]\n", status);
@@ -103,61 +103,61 @@ MessageQApp_execute ()
     for (i = 0 ; i < NUM_LOOPS ; i++) {
 
 #if 0  // Enable once we can pipe in data via some block device:
-          /* read a block of data */
-          ret = fread(payload, 1, PAYLOADSIZE, stdin);
-          if (ret < PAYLOADSIZE)
-              break;
+        /* read a block of data */
+        ret = fread(payload, 1, PAYLOADSIZE, stdin);
+        if (ret < PAYLOADSIZE)
+            break;
 #endif
-          /* Allocate message. */
-          msg = MessageQ_alloc (HEAPID, MSGSIZE);
-          if (msg == NULL) {
-              printf ("Error in MessageQ_alloc\n");
-              break;
-          }
+        /* Allocate message. */
+        msg = MessageQ_alloc (HEAPID, MSGSIZE);
+        if (msg == NULL) {
+            printf ("Error in MessageQ_alloc\n");
+            break;
+        }
 
-          MessageQ_setMsgId (msg, i);
+        MessageQ_setMsgId (msg, i);
 
-          /* Have the remote proc reply to this message queue */
-          MessageQ_setReplyQueue (msgqHandle, msg);
+        /* Have the remote proc reply to this message queue */
+        MessageQ_setReplyQueue (msgqHandle, msg);
 
-          printf("Sending msgId: %d, size: %d\n", i, MessageQ_getMsgSize(msg));
+        printf("Sending msgId: %d, size: %d\n", i, MessageQ_getMsgSize(msg));
 
-          status = MessageQ_put(queueId, msg);
-          if (status < 0) {
-              printf ("Error in MessageQ_put [0x%x]\n", status);
-              break;
-          }
+        status = MessageQ_put(queueId, msg);
+        if (status < 0) {
+            printf ("Error in MessageQ_put [0x%x]\n", status);
+            break;
+        }
 
-          for (j = 0 ; j < NUM_SLAVE_MSGS_PER_HOST_MSG; j++) {
-             status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
-             if (status < 0) {
-                 printf ("Error in MessageQ_get [0x%x]\n", status);
-                 MessageQ_free(msg);
-                 goto cleanup_close;
-             }
-             else {
-                 printf ("Received msgId: %d, size: %d\n", 
-			MessageQ_getMsgId(msg), MessageQ_getMsgSize(msg));
+        for (j = 0 ; j < NUM_SLAVE_MSGS_PER_HOST_MSG; j++) {
+           status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
+           if (status < 0) {
+               printf ("Error in MessageQ_get [0x%x]\n", status);
+               MessageQ_free(msg);
+               goto cleanup_close;
+           }
+           else {
+               printf ("Received msgId: %d, size: %d\n",
+               MessageQ_getMsgId(msg), MessageQ_getMsgSize(msg));
 
-                 /* Validate the returned message. */
-                 if ((msg != NULL) && (MessageQ_getMsgId(msg) != j)) {
-                     printf ("Data integrity failure:\n"
-                          "    Expected %d\n"
-                          "    Received %d\n",
-                          j, MessageQ_getMsgId (msg));
-                     MessageQ_free(msg);
-                     goto cleanup_close;
-                 }
-                 MessageQ_free(msg);
-             }
-          }
+               /* Validate the returned message. */
+               if ((msg != NULL) && (MessageQ_getMsgId(msg) != j)) {
+                   printf ("Data integrity failure:\n"
+                        "    Expected %d\n"
+                        "    Received %d\n",
+                        j, MessageQ_getMsgId (msg));
+                   MessageQ_free(msg);
+                   goto cleanup_close;
+               }
+               MessageQ_free(msg);
+           }
+        }
 
-          printf ("Exchanged messages: tx %d, rx %d\n",
-                  (i+1), (i+1)*NUM_SLAVE_MSGS_PER_HOST_MSG);
+        printf ("Exchanged messages: tx %d, rx %d\n",
+                (i+1), (i+1)*NUM_SLAVE_MSGS_PER_HOST_MSG);
     }
 
     if (status >= 0) {
-       printf ("Sample application successfully completed!\n");
+        printf ("Sample application successfully completed!\n");
     }
 
 cleanup_close:
@@ -176,19 +176,18 @@ exit:
     return (status);
 }
 
-int
-main (int argc, char ** argv)
+int main (int argc, char ** argv)
 {
     Int32   status = 0;
 
     status = SysLink_setup();
 
     if (status >= 0) {
-       MessageQApp_execute();
-       SysLink_destroy();
+        MessageQApp_execute();
+        SysLink_destroy();
     }
     else {
-       printf ("SysLink_setup failed: status = 0x%x\n", status);
+        printf ("SysLink_setup failed: status = 0x%x\n", status);
     }
 
     return(0);
