@@ -34,7 +34,7 @@
 REPO = /db/atree/gp/repo
 
 # Platform to build (see src/family/ for subdirectories).
-PLATFORM_DIR := omap4430
+PLATFORM_DIR := omapl138
 
 # BIOS IPC Location for Shared API Headers:
 IPCPRODVER = ipc_1_23_01_26
