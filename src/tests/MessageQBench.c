@@ -47,7 +47,7 @@
 #include <ti/ipc/MessageQ.h>
 
 /* App defines: Must match on remote proc side: */
-#define NUM_LOOPS           100     /* Number of transfers to be tested. */
+#define NUM_LOOPS           1000     /* Number of transfers to be tested. */
 #define MSGSIZE             64u
 #define HEAPID              0u
 #define CORE0_MESSAGEQNAME  "SLAVE"
@@ -160,7 +160,7 @@ MessageQApp_execute ()
             status = MessageQ_free (msg);
 
         }
-        printf ("Message (%d) time: %ld usecs\n", i, delta);
+        //printf ("Message (%d) time: %ld usecs\n", i, delta);
     }
 
     printf ("Sample application successfully completed!\n");
