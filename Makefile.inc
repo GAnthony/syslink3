@@ -37,7 +37,7 @@ REPO = /db/atree/gp/repo
 PLATFORM_DIR := omapl138
 
 # BIOS IPC Location for Shared API Headers:
-IPCPRODVER = ipc_1_23_01_26
+IPCPRODVER = ipc_1_24_00_16
 IPC_INSTALL_DIR = $(REPO)/$(IPCPRODVER)
 
 LIB_DEPS := ../api/libipc.a ../utils/libutils.a ../family/$(PLATFORM_DIR)/libcfg.a
