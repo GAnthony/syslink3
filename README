@@ -14,8 +14,9 @@ For current constraints, see the TODO section below.
 
 Platforms:
 =========
-Messaging has been validated between:
-1) Linux A9 to BIOS Ducati sysM3 (CORE0), on OMAP4 Panda board.
+Messaging has been validated between Linux to BIOS on:
+1) OMAPL138 EVM board: ARM to DSP.
+2) OMAP4430 Panda board: Dual ARM9 to Ducati CORE0 ("SysM3").
 
 
 BUILD:
@@ -29,111 +30,138 @@ Kernel space:
 
 1) Clone the upstream-rpmsg repo, and checkout the rpmsg_3.4_rc1 branch:
   * https://github.com/ohadbc/upstream-rpmsg/tree/rpmsg_3.4_rc1
+  * Commit tag: v0.2
 
-2) The etc/rpmsg_3.4_rc1.config file was used for Panda board during testing.
+2a) The syslink3 repo (see below) etc/ directory contains the .config files 
+   used for testing.
+  [OMAPL138] etc/omapl138/omapl138_rpmsg_3.4_rc1.config
+  [OMAP4430] etc/panda/panda_rpmsg_3.4_rc1.config
+
+2b) Key config parameters needed for rpmsg and socket driver to build/work:
+   CONFIG_PREEMPT_NONE=y
+   CONFIG_REMOTEPROC=m
+   CONFIG_DAVINCI_REMOTEPROC=m
+   CONFIG_RPMSG=m
+   CONFIG_VIRTIO=m
+   CONFIG_VIRTIO_RING=m
+
+3) Code Sourcery Toolchain version used: arm-2010q1 
 
 User space:
 -----------
 
-1) Install the BIOS IPC product into the tools REPO directory:
+1) Install the BIOS IPC product into a tools repository (REPO) directory:
   - See sysbios-rpmsg repo Makefile to get correct IPC version.
   - http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/ipc/
-2) Clone the following to get the MessageQ library and test sample:
+
+2) Clone the following to get SysLink3 libraries, NameServer daemon and samples:
   * git://github.com/GAnthony/syslink3.git
-3) Update Makefile.inc to point the REPO variable to find BIOS IPC:
-   # Tools REPO:
-   REPO = <path to your tools repository>
-4) Build:
+  * Commit tag: v0.2
+
+3) Build:
+  % make REPO=<path to your tools repository>
+OR:
+  - Edit Makefile.inc, update REPO variable to point to the tools repository.
   % make
 
 BIOS side:
 ==========
 
 1) Clone the sysbios-rpmsg repo, and checkout the syslink3 branch:
-   * https://github.com/GAnthony/sysbios-rpmsg/tree/syslink3
-   * Use commit at tag: v0.1_rpmsg_3.4.
+  * https://github.com/GAnthony/sysbios-rpmsg/tree/syslink3
+  * Commit tag: v0.2
 
-2) See the README for tools and build instructions (substitute github repo above
-   for the omapzoom repo mentioned in the README).  Use the tools versions 
-   listed in the Makefile.
+2) See the README for tools and build instructions (substitute GAnthony repo 
+   for the omapzoom repo mentioned in the README).  
+   *Use the tools versions listed in the Makefile*.
 
 3) Note that the MessageQCopy, srvmgr, resmgr, pm, and grcm modules are
    not currently compatible with the new BIOS IPC transport: TransportVirtio.
-   They build, but are not compiled into the test sample: messageq_socket.c.
+   They build, but are not compiled into the test sample: messageq_socket.
+
+4) The result of this build will be a messageq_socket ELF binary in the 
+   src/ti/ipc/tests/<ti_platforms_X>/<profile>/ directory.
 
 Test:
 ====
 
-See the syslink3 repo's etc/ directory for scripts to use on the target:
-- load_firmware.sh:   loads remoteproc, virtio and rpmsg modules.
-- unload_firmware.sh: unloads modules.
-- run_lad.sh:         starts the NameServer daemon (needed by MessageQ).
-- dump_trace.sh:      A shortcut to dump the coprocessor trace buffer. 
+1) Setup a root file system.  This was tested using a root file system from: 
+   http://narcissus.angstrom-distribution.org/
+   [OMAPL138] "machine type" = da850-omapl138-evm
+   [OMAP4430] "machine type" = pandaboard
 
-This was tested using a target root file system (built using machine type:
-pandaboard) from: http://narcissus.angstrom-distribution.org/
+2) Boot Linux on the target: 
+   [OMAPL138] (eg: boot uImage over TFTP, and load fs over NFS)
+   setenv bootfile=/gp/uImage.omapl138.rpmsg_3.4_rc1
+   setenv bootargs=console=ttyS2,115200n8 root=/dev/nfs rw nfsroot=<nfs_server_ip>:<rfs_path>,nolock ip=dhcp rootdelay=5
+   setenv bootcmd=dhcp;bootm c0700000
 
-) Boot Linux on the target: (eg: boot uImage on MMC, and load fs over NFS):
+   [OMAP4430] (eg: boot uImage on MMC, and load fs over NFS):
    setenv bootargs 'root=/dev/nfs rw nfsroot=<nfs_server_ip>:<rfs_path> rootdelay=5 console=ttyO2,115200n8 noinitrd ip=dhcp'
    setenv bootcmd 'mmcinit 0;fatload mmc 0:1 0x80000000 uImage; bootm'
 
-2) Copy the messageq_socket.xem3 ELF binary (output of sysbios-rpmsg make) to
-   the target /lib/firmware directory, and rename to ducati-m3-core0.xem3.
+3) Copy the messageq_socket binary (output of sysbios-rpmsg make) to
+   the target /lib/firmware directory, renaming to the firmware
+   filename for your platform:
 
-3) On the target, load the BIOS firmware and rpmsg socket driver:
-   (See etc/load_firmware.sh):
+   [OMAPL138] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platforms_evmOMAPL138_DSP/debug/messageq_socket.xe674 <target>/lib/firmware/da8xx-dsp.elf
+
+   [OMAP4430] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platform_omap4430_core0/debug/messageq_socket.xem3 <target>/lib/firmware/ducati-m3-core0.xem3
+
+4) On the target, load the BIOS firmware and rpmsg socket driver:
+   (Eg: See etc/<platform>/load_firmware.sh):
    % depmod -a
-   % mkdir /debug
+   % if [ ! -d "/debug" ]; then
+        mkdir /debug
+   % fi
    % mount -t debugfs none /debug
    % modprobe remoteproc
-   % modprobe omap_remoteproc
+   % modprobe davinci_remoteproc  # [OMAPL138]
    % modprobe virtio_rpmsg_bus
    % modprobe rpmsg_proto
 
-4) To dump the Ducati trace on core 0:
-   (See etc/dump_trace.sh):
-   % cat /debug/remoteproc/omap-rproc.1/trace0
+5) To dump the trace on the remote proc:
+   (See etc/<platform>/dump_trace.sh):
+   % cat /debug/remoteproc/davinci-rproc.0/trace0   # [OMAPL138]
 
-5a) Start the NameServer daemon: (based on Link Arbiter Daemon):
+6) Start the NameServer daemon: (based on Link Arbiter Daemon):
    (See etc/run_lad.txt):
    % lad lad.txt
-   # Optionally pipe out the NameServer printf:
-   % tail -f /tmp/LAD/lad.txt
 
-5b) Run MessageQApp (built in src/samples)
-   % MessageQApp:
+7) Copy the <syslink3>/src/samples/MessageQApp sample to the target and Run:
+   % MessageQApp
 
-6) Expected Output: Linux side:
+8) Expected Output: Linux side:
 
-MessageQApp
-Remote MessageQApp_queueId  [0x10000]
+% MessageQApp
+
+Remote queueId  [0x10000]
 
 Exchanging messages with remote processor...
-MessageQ_get #0 Msg = 0x18398
+MessageQ_get #0 Msg = 0x183b0
 Exchanged 1 messages with remote processor
-MessageQ_get #1 Msg = 0x18398
+MessageQ_get #1 Msg = 0x183b0
 Exchanged 2 messages with remote processor
+MessageQ_get #2 Msg = 0x183b0
 [...]
 Exchanged 99 messages with remote processor
-MessageQ_get #99 Msg = 0x18398
+MessageQ_get #99 Msg = 0x183b0
 Exchanged 100 messages with remote processor
 Sample application successfully completed!
 Leaving MessageQApp_execute
 
-Entered MessageQApp_shutdown()
-LAD_disconnect() succeeded
-Leave MessageQApp_shutdown()
+7) Expected Output: BIOS trace:  [OMAPL138]
 
-7) Expected Output: BIOS trace:
+% dump_trace.sh
 
-12 resources at 0x1
+3 resources at 0xc4046000
 main: MultiProc id = 1
-tsk1_func: In tsk1_func.
+tsk1Fxn: In tsk1Fxn.
 TransportVirtioSetup_attach: remoteProcId: 0
 registering rpmsg-proto service on 61 with HOST
-tsk1_func: created MessageQ: SLAVE; QueueID: 0x10000
-tsk1_func: Calling MessageQ_open...
-tsk1_func: Remote MessageQ HOST; QueueID: 0x1
+tsk1Fxn: created MessageQ: SLAVE; QueueID: 0x10000
+tsk1Fxn: Calling MessageQ_open...
+tsk1Fxn: Remote MessageQ HOST; QueueID: 0x1
 Start the main loop
 Received message #0 from core 0
 Sending message Id #0 to core 0
@@ -152,28 +180,33 @@ Test complete!
    (See etc/unload_firmware.sh)
    % rmmod rpmsg_proto
    % rmmod virtio_rpmsg_bus
-   % rmmod omap_remoteproc
+   % rmmod davinci_remoteproc   # [OMAPL138]
    % rmmod remoteproc
-
-9) To validate the socket without MessageQ, you can build the rpmsg_proto test:
-  * See https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.4_rc1/tools/rpmsg_proto.c
-  - This is a test program for the rpmsg socket, which assumes the BIOS firmware test_omx_sysm3.xem3 is copied into /lib/firmware/ducati-m3-core0.xem3.
-  - To build:
-    arm-none-linux-gnueabi-gcc rpmsg_proto.c -o rpmsg_proto
-  - Then reboot and load the firmware as above.
 
 Documentation:
 ==============
 
 * http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/syslink/latest/docs/html/index.html
+* http://free-electrons.com/pub/video/2011/elce/elce-2011-ben-cohen-remote-processor-messaging-450p.webm
 * https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.4_rc1/Documentation/rpmsg.txt
 * https://github.com/ohadbc/upstream-rpmsg/blob/rpmsg_3.4_rc1/Documentation/virtual/virtio-spec.txt
 * http://www.omappedia.org/wiki/Syslink_3
 
+Known Issues:
+============
+* Unable to do more than one load_firmware/unload_firmware cycle with reboot. 
+* Some error conditions, timeouts and ^C processing not completely handled.
+* Socket recvfrom fails when pre-emption is enabled in Linux kernel.
+* clock_gettime() giving inconsistent results on Panda, and 10X expected on
+  OMAPL138 EVM compared to hawkboard.
+* Panda platform does not build in sysbios-rpmsg repo.
+
 TODO:
 =====
+* CMEM example passing pointers to shared memory buffers larger than 512Kb.
+  - Preferred method to increasing rpmsg copy transport size limit.
+* Optimize performance/benchmark.
+* Multiple platform build support in both syslink3 and sysbios-rpmsg repos.
 * Add OSAL, and replace printf in API modules with Log_printf.
 * Support multiple processes.
-* Optimize performance/benchmark.
 * Make TransportVirtio work with MessageQCopy based channels and rpmsg-omx;
-
