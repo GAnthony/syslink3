@@ -29,7 +29,7 @@ Kernel space:
 ------------
 
 1) Clone the upstream-rpmsg repo, and checkout the rpmsg_3.4_rc1 branch:
-  * https://github.com/ohadbc/upstream-rpmsg/tree/rpmsg_3.4_rc1
+  * https://github.com/GAnthony/upstream-rpmsg/tree/rpmsg_3.4_rc1
   * Commit tag: v0.2
 
 2a) The syslink3 repo (see below) etc/ directory contains the .config files 
