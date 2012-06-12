@@ -1,2 +1,2 @@
 lad lad.txt
-tail -f /tmp/LAD/lad.txt &
+# tail -f /tmp/LAD/lad.txt &

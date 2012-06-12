@@ -1,6 +1,8 @@
 #!/bin/bash
 depmod -a
-mkdir /debug
+if [ ! -d "/debug" ]; then
+	mkdir /debug
+fi
 mount -t debugfs none /debug
 modprobe remoteproc
 modprobe omap_remoteproc
