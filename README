@@ -28,9 +28,10 @@ Linux side:
 Kernel space:
 ------------
 
-1) Clone the upstream-rpmsg repo, and checkout the rpmsg_3.4_rc1 branch:
-  * https://github.com/GAnthony/upstream-rpmsg/tree/rpmsg_3.4_rc1
-  * Commit tag: v0.2
+1) Clone the upstream-rpmsg repo, and checkout the v0.2 tag 
+   (on rpmsg_3.4_rc1 branch):
+  * git clone git://github.com/GAnthony/upstream-rpmsg.git
+  * git checkout -b <branch_name> v0.2
 
 2a) The syslink3 repo (see below) etc/ directory contains the .config files 
    used for testing.
@@ -55,8 +56,8 @@ User space:
   - http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/ipc/
 
 2) Clone the following to get SysLink3 libraries, NameServer daemon and samples:
-  * git://github.com/GAnthony/syslink3.git
-  * Commit tag: v0.2
+  * git clone git://github.com/GAnthony/syslink3.git
+  * git checkout -b <branch_name> v0.2
 
 3) Build:
   % make REPO=<path to your tools repository>
@@ -67,9 +68,10 @@ OR:
 BIOS side:
 ==========
 
-1) Clone the sysbios-rpmsg repo, and checkout the syslink3 branch:
-  * https://github.com/GAnthony/sysbios-rpmsg/tree/syslink3
-  * Commit tag: v0.2
+1) Clone the sysbios-rpmsg repo, and checkout the v0.2 tag 
+  (on the syslink3 branch):
+  * git clone git://github.com/GAnthony/sysbios-rpmsg.git
+  * git checkout -b <branch_name> v0.2
 
 2) See the README for tools and build instructions (substitute GAnthony repo 
    for the omapzoom repo mentioned in the README).  
@@ -108,7 +110,11 @@ Test:
 
    [OMAP4430] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platform_omap4430_core0/debug/messageq_socket.xem3 <target>/lib/firmware/ducati-m3-core0.xem3
 
-4) On the target, load the BIOS firmware and rpmsg socket driver:
+4) Copy the MessageQApp and lad daemon to the target:
+   % cp <syslink3>/src/samples/MessageQApp <target>/ 
+   % cp <syslink3>/src/daemon/lad <target>/
+
+5) On the target, load the BIOS firmware and rpmsg socket driver:
    (Eg: See etc/<platform>/load_firmware.sh):
    % depmod -a
    % if [ ! -d "/debug" ]; then
@@ -120,18 +126,18 @@ Test:
    % modprobe virtio_rpmsg_bus
    % modprobe rpmsg_proto
 
-5) To dump the trace on the remote proc:
+6) To dump the trace on the remote proc:
    (See etc/<platform>/dump_trace.sh):
    % cat /debug/remoteproc/davinci-rproc.0/trace0   # [OMAPL138]
 
-6) Start the NameServer daemon: (based on Link Arbiter Daemon):
-   (See etc/run_lad.txt):
+7) Start the NameServer daemon: (based on Link Arbiter Daemon):
+   (See etc/run_lad.sh):
    % lad lad.txt
 
-7) Copy the <syslink3>/src/samples/MessageQApp sample to the target and Run:
+8) Copy the <syslink3>/src/samples/MessageQApp sample to the target and Run:
    % MessageQApp
 
-8) Expected Output: Linux side:
+9) Expected Output: Linux side:
 
 % MessageQApp
 
@@ -150,7 +156,7 @@ Exchanged 100 messages with remote processor
 Sample application successfully completed!
 Leaving MessageQApp_execute
 
-7) Expected Output: BIOS trace:  [OMAPL138]
+10) Expected Output: BIOS trace:  [OMAPL138]
 
 % dump_trace.sh
 
@@ -176,7 +182,7 @@ TransportVirtioSetup_detach: remoteProcId: 0
 unregistering rpmsg-proto service on 61 with HOST
 Test complete!
 
-8) To unload the firmware and stop the coprocessor:
+11) To unload the firmware and stop the coprocessor:
    (See etc/unload_firmware.sh)
    % rmmod rpmsg_proto
    % rmmod virtio_rpmsg_bus
