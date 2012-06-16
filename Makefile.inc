@@ -38,15 +38,17 @@ PLATFORM_DIR := omapl138
 
 # BIOS IPC Location for Shared API Headers:
 IPCPRODVER = ipc_1_24_00_16
+CMEMPRODVER = linuxutils_3_23_00_00
 IPC_INSTALL_DIR = $(REPO)/$(IPCPRODVER)
+CMEM_INSTALL_DIR = $(REPO)/$(CMEMPRODVER)
 
 LIB_DEPS := ../api/libipc.a ../utils/libutils.a ../family/$(PLATFORM_DIR)/libcfg.a
 CROSS  := arm-none-linux-gnueabi-
 GCC    := $(CROSS)gcc
 AR     := $(CROSS)ar
 RANLIB := $(CROSS)ranlib
-CFLAGS := -Wall -I../../include -I$(IPC_INSTALL_DIR)/packages -D_GNU_SOURCE
-LFLAGS := -lpthread -L../api -lipc -L../utils -lutils -L../family/$(PLATFORM_DIR) -lcfg
+CFLAGS := -Wall -I../../include -I$(IPC_INSTALL_DIR)/packages -I$(CMEM_INSTALL_DIR)/packages -D_GNU_SOURCE
+LFLAGS := -lpthread -L../api -lipc -L../utils -lutils -L../family/$(PLATFORM_DIR) -lcfg $(CMEM_INSTALL_DIR)/packages/ti/sdo/linuxutils/cmem/lib/cmem.a470MV
 
 
 %.o: %.c

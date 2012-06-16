@@ -45,16 +45,31 @@
 #include <SysLink.h>
 #include <ti/ipc/MessageQ.h>
 
+#include <ti/sdo/linuxutils/cmem/include/cmem.h>
+
 #define  NUM_LOOPS  10
 
 /* App defines:  Must match on remote proc side: */
 #define NUM_SLAVE_MSGS_PER_HOST_MSG   4
+#if 0
 #if 0 //TBD: Enable once we have RPMSG_BUF_SIZE bumped up in kernel:
 #define MSGSIZE             (8192-16)  /* minus RpMsg_Header */
 #else
 #define MSGSIZE             (512-16)  /* minus RpMsg_Header */
 #endif
 #define PAYLOADSIZE         (MSGSIZE-32) /* minus MessageQ header */
+#else
+
+struct MyMsg {
+    MessageQ_MsgHeader header;
+    unsigned long bufPhys;
+};
+typedef struct MyMsg MyMsg;
+
+#define MSGSIZE             (sizeof(MyMsg))
+#define PAYLOADSIZE         (8192)
+
+#endif
 
 #define HEAPID              0u
 #define CORE0_MESSAGEQNAME  "SLAVE"
@@ -70,7 +85,10 @@ MessageQApp_execute ()
     MessageQ_Handle          msgqHandle;
     int                      i, j;
     int                      ret;
-    static unsigned char     payload[PAYLOADSIZE]; /* minus MessageQ Header */
+    void                     *payload;
+    unsigned long            payloadPhys;
+    CMEM_AllocParams         cmemAttrs;
+    MyMsg                    *myMsgPtr;
 
     printf ("Entered MessageQApp_execute\n");
 
@@ -99,8 +117,18 @@ MessageQApp_execute ()
         printf ("Remote queueId  [0x%x]\n", queueId);
     }
 
+    cmemAttrs.type = CMEM_HEAP;
+    cmemAttrs.flags = CMEM_NONCACHED;
+    cmemAttrs.alignment = 0;
+    payload = CMEM_alloc(PAYLOADSIZE, &cmemAttrs);
+    if (payload == NULL) {
+        printf("CMEM_alloc() failed (returned NULL)\n");
+        goto cleanup_close;
+    }
+    payloadPhys = CMEM_getPhys(payload);
+
     printf ("\nExchanging messages with remote processor...\n");
-    for (i = 0 ; i < NUM_LOOPS ; i++) {
+    for (i = 0 ; 1 ; i++) {
 
 #if 0  // Enable once we can pipe in data via some block device:
         /* read a block of data */
@@ -120,7 +148,11 @@ MessageQApp_execute ()
         /* Have the remote proc reply to this message queue */
         MessageQ_setReplyQueue (msgqHandle, msg);
 
-        printf("Sending msgId: %d, size: %d\n", i, MessageQ_getMsgSize(msg));
+        myMsgPtr = (MyMsg *)msg;
+        myMsgPtr->bufPhys = payloadPhys;
+
+        printf("Sending msgId: %d, size: %d, *msg: 0x%lx\n", i,
+               MessageQ_getMsgSize(msg), myMsgPtr->bufPhys);
 
         status = MessageQ_put(queueId, msg);
         if (status < 0) {
@@ -136,8 +168,10 @@ MessageQApp_execute ()
                goto cleanup_close;
            }
            else {
-               printf ("Received msgId: %d, size: %d\n",
-               MessageQ_getMsgId(msg), MessageQ_getMsgSize(msg));
+               myMsgPtr = (MyMsg *)msg;
+               printf ("Received msgId: %d, size: %d, *msg: 0x%lx\n",
+                       MessageQ_getMsgId(msg), MessageQ_getMsgSize(msg),
+                       myMsgPtr->bufPhys);
 
                /* Validate the returned message. */
                if ((msg != NULL) && (MessageQ_getMsgId(msg) != j)) {
@@ -160,6 +194,8 @@ MessageQApp_execute ()
         printf ("Sample application successfully completed!\n");
     }
 
+    CMEM_free(payload, &cmemAttrs);
+
 cleanup_close:
     MessageQ_close (&queueId);
 
@@ -179,6 +215,12 @@ exit:
 int main (int argc, char ** argv)
 {
     Int32   status = 0;
+
+    if (CMEM_init() < 0) {
+        printf("CMEM_init failed\n");
+
+        return(-1);
+    }
 
     status = SysLink_setup();
 
