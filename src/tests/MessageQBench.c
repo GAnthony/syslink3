@@ -47,7 +47,7 @@
 #include <ti/ipc/MessageQ.h>
 
 /* App defines: Must match on remote proc side: */
-#define NUM_LOOPS           1000     /* Number of transfers to be tested. */
+#define NUM_LOOPS           1000  /* Number of transfers to be tested. */
 #define MSGSIZE             64u
 #define HEAPID              0u
 #define CORE0_MESSAGEQNAME  "SLAVE"
@@ -66,7 +66,7 @@ long diff(struct timespec start, struct timespec end)
         temp.tv_sec = end.tv_sec-start.tv_sec;
         temp.tv_nsec = end.tv_nsec-start.tv_nsec;
     }
-    usecs = temp.tv_sec * 1000 + temp.tv_nsec / 1000;
+    usecs = temp.tv_sec * 1000000 + temp.tv_nsec / 1000;
     return usecs;
 }
 
@@ -80,7 +80,7 @@ MessageQApp_execute ()
     MessageQ_QueueId         queueId = MessageQ_INVALIDMESSAGEQ;
     MessageQ_Handle          msgqHandle;
     struct timespec          start,end;
-    long                     elapsed=0,delta;
+    long                     elapsed=0;
 
     printf ("Entered MessageQApp_execute\n");
 
@@ -109,24 +109,24 @@ MessageQApp_execute ()
         printf ("Remote queueId  [0x%x]\n", queueId);
     }
 
-    printf ("\nExchanging messages with remote processor...\n");
+    /* Allocate message. */
+    msg = MessageQ_alloc (HEAPID, MSGSIZE);
+    if (msg == NULL) {
+        printf ("Error in MessageQ_alloc\n");
+        MessageQ_close (&queueId);
+        goto cleanup;
+    }
+    printf ("\nExchanging %d messages with remote processor...\n", NUM_LOOPS);
+
     for (i = 0 ; i < NUM_LOOPS ; i++) {
-
-        /* Allocate message. */
-        msg = MessageQ_alloc (HEAPID, MSGSIZE);
-        if (msg == NULL) {
-            printf ("Error in MessageQ_alloc\n");
-            break;
+        if (1 == i) {
+            /* Start after first sleep() call in BIOS side messageq sample: */
+            clock_gettime(CLOCK_REALTIME, &start);
         }
-
-
         MessageQ_setMsgId (msg, i);
 
         /* Have the remote proc reply to this message queue */
         MessageQ_setReplyQueue (msgqHandle, msg);
-
-        //if (i) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-        if (i) clock_gettime(CLOCK_REALTIME, &start);
 
         status = MessageQ_put (queueId, msg);
         if (status < 0) {
@@ -148,26 +148,22 @@ MessageQApp_execute ()
                         i, MessageQ_getMsgId (msg));
                 break;
             }
-
-            if (i) {
-           /* we avoid the first datum, 'cause it's an outlier: */
-           //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-           clock_gettime(CLOCK_REALTIME, &end);
-               delta = diff(start,end);
-               elapsed += delta;
-           }
-
-            status = MessageQ_free (msg);
-
         }
-        //printf ("Message (%d) time: %ld usecs\n", i, delta);
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed = diff(start,end);
+
+    status = MessageQ_free (msg);
+    if (status < 0) {
+            printf ("Error in MessageQ_get [0x%x]\n", status);
     }
 
     printf ("Sample application successfully completed!\n");
 
     MessageQ_close (&queueId);
-    printf("Avg round trip time: %ld usecs\n", elapsed/(i-1));
-
+    if (i > 1) {
+        printf("Avg round trip time: %ld usecs\n", elapsed/(i-1));
+    }
 
 cleanup:
     /* Clean-up */
