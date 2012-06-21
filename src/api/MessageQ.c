@@ -1086,7 +1086,8 @@ static Int transportGet(int sock, MessageQ_Msg * retMsg)
     int           byteCount;
 
     /*
-     * Allocate a message of max size to receive contents from the rpmsg socket
+     * We have no way of peeking to see what message size we'll get, so we
+     * allocate a message of max size to receive contents from the rpmsg socket
      * (currently, a copy transport)
      */
     msg = MessageQ_alloc (0, MESSAGEQ_RPMSG_MAXSIZE);
@@ -1111,11 +1112,19 @@ static Int transportGet(int sock, MessageQ_Msg * retMsg)
         goto exit;
     }
     else {
-        /* Update the allocated message size (even though this may waste space
-         * when the actual message is smaller than the maximum rpmsg size,
-         * the message will be freed soon anyway, and it avoids an extra copy).
-         */
+         /* Update the allocated message size (even though this may waste space
+          * when the actual message is smaller than the maximum rpmsg size,
+          * the message will be freed soon anyway, and it avoids an extra copy).
+          */
          msg->msgSize = byteCount;
+
+         /*
+          * If the message received was statically allocated, reset the
+          * heapId, so the app can free it.
+          */
+         if (msg->heapId == MessageQ_STATICMSG)  {
+             msg->heapId = 0;  /* for a copy transport, heap id is 0. */
+         }
     }
 
 #ifdef VERBOSE
