@@ -241,6 +241,10 @@ Known Issues:
 ============
 * Build for Panda board is broken on sysbios-rpmsg repo.
 * Cleanup on abnormal process termination or NameServer timeouts not completely   handled.
+* For each interrupt from the DSP, a second spurious call to the irq function
+  in davinci_remoteproc is occuring, despite the fact that there is no
+  actual second interrupt.  A hack was put in to ignore this second spurious
+  interrupt until a patch to the interrupt handling code on davinci is found.
 
 TODO:
 =====
