@@ -60,8 +60,8 @@
  *  ============================================================================
  */
 
-#define  NUM_LOOPS_DFLT   100
-#define  NUM_THREADS_DFLT 10
+#define  NUM_LOOPS_DFLT   1000
+#define  NUM_THREADS_DFLT 20
 #define  MAX_NUM_THREADS  50
 
 /** ============================================================================
