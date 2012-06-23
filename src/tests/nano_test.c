@@ -34,6 +34,14 @@
  *
  *  @brief  Customer use case test application. 
  *
+ *  Usage:  See etc/omapl138/nano_test.sh
+ *
+ *  Notes:  There is an overrun reported by arecord in the very begining of
+ *          the test.  This does not appear to be due to DSP communication,
+ *          as there are no overruns once the test gets past initialization.
+ *          One possible cause is a startup effect of using the shell
+ *          pipe command.
+ *
  *  ============================================================================
  */
 
@@ -47,29 +55,17 @@
 
 #include <ti/sdo/linuxutils/cmem/include/cmem.h>
 
-#define  NUM_LOOPS  10
-
-/* App defines:  Must match on remote proc side: */
-#define NUM_SLAVE_MSGS_PER_HOST_MSG   4
-#if 0
-#if 0 //TBD: Enable once we have RPMSG_BUF_SIZE bumped up in kernel:
-#define MSGSIZE             (8192-16)  /* minus RpMsg_Header */
-#else
-#define MSGSIZE             (512-16)  /* minus RpMsg_Header */
-#endif
-#define PAYLOADSIZE         (MSGSIZE-32) /* minus MessageQ header */
-#else
-
 struct MyMsg {
     MessageQ_MsgHeader header;
     unsigned long bufPhys;
 };
 typedef struct MyMsg MyMsg;
 
-#define MSGSIZE             (sizeof(MyMsg))
+/* App defines:  Must match on remote proc side: */
+#define NUM_SLAVE_MSGS_PER_HOST_MSG   4
 #define PAYLOADSIZE         (8192)
 
-#endif
+#define MSGSIZE             (sizeof(MyMsg))
 
 #define HEAPID              0u
 #define CORE0_MESSAGEQNAME  "SLAVE"
@@ -110,7 +106,7 @@ MessageQApp_execute ()
         sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
     if (status < 0) {
-        printf ("Error in MessageQ_open [0x%x]\n", status);
+        printf ("Error in MessageQ_open [%d]\n", status);
         goto cleanup_create;
     }
     else {
@@ -128,19 +124,20 @@ MessageQApp_execute ()
     payloadPhys = CMEM_getPhys(payload);
 
     printf ("\nExchanging messages with remote processor...\n");
-    for (i = 0 ; 1 ; i++) {
+    for (i = 0 ; ; i++) {
 
-#if 0  // Enable once we can pipe in data via some block device:
-        /* read a block of data */
+        /* read a block of data from stdin */
         ret = fread(payload, 1, PAYLOADSIZE, stdin);
-        if (ret < PAYLOADSIZE)
+        if (ret < PAYLOADSIZE) {
+            printf ("EOS: Exiting without sending remaining %d bytes\n", ret);
             break;
-#endif
+        }
+
         /* Allocate message. */
         msg = MessageQ_alloc (HEAPID, MSGSIZE);
         if (msg == NULL) {
             printf ("Error in MessageQ_alloc\n");
-            break;
+            goto cleanup_cmem;
         }
 
         MessageQ_setMsgId (msg, i);
@@ -156,22 +153,24 @@ MessageQApp_execute ()
 
         status = MessageQ_put(queueId, msg);
         if (status < 0) {
-            printf ("Error in MessageQ_put [0x%x]\n", status);
+            printf ("Error in MessageQ_put [%d]\n", status);
             break;
         }
 
         for (j = 0 ; j < NUM_SLAVE_MSGS_PER_HOST_MSG; j++) {
            status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
            if (status < 0) {
-               printf ("Error in MessageQ_get [0x%x]\n", status);
-               MessageQ_free(msg);
+               printf ("Error in MessageQ_get [%d]\n", status);
+               status = MessageQ_free(msg);
                goto cleanup_close;
            }
            else {
                myMsgPtr = (MyMsg *)msg;
+#ifdef VERBOSE
                printf ("Received msgId: %d, size: %d, *msg: 0x%lx\n",
                        MessageQ_getMsgId(msg), MessageQ_getMsgSize(msg),
                        myMsgPtr->bufPhys);
+#endif
 
                /* Validate the returned message. */
                if ((msg != NULL) && (MessageQ_getMsgId(msg) != j)) {
@@ -182,18 +181,23 @@ MessageQApp_execute ()
                    MessageQ_free(msg);
                    goto cleanup_close;
                }
-               MessageQ_free(msg);
+               status = MessageQ_free(msg);
+               if (status < 0) {
+                   printf ("Error in MessageQ_free [%d]\n", status);
+               }
            }
         }
-
-        printf ("Exchanged messages: tx %d, rx %d\n",
-                (i+1), (i+1)*NUM_SLAVE_MSGS_PER_HOST_MSG);
     }
+
+    printf ("Exchanged messages: tx %d, rx %d\n",
+             i, i*NUM_SLAVE_MSGS_PER_HOST_MSG);
+    printf ("Transferred %d KB\n", (i * PAYLOADSIZE) / 1024);
 
     if (status >= 0) {
         printf ("Sample application successfully completed!\n");
     }
 
+cleanup_cmem:
     CMEM_free(payload, &cmemAttrs);
 
 cleanup_close:
@@ -203,7 +207,7 @@ cleanup_create:
     /* Clean-up */
     status = MessageQ_delete (&msgqHandle);
     if (status < 0) {
-        printf ("Error in MessageQ_delete [0x%x]\n", status);
+        printf ("Error in MessageQ_delete [%d]\n", status);
     }
 
 exit:

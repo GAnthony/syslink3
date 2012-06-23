@@ -28,10 +28,10 @@ Linux side:
 Kernel space:
 ------------
 
-1) Clone the upstream-rpmsg repo, and checkout the v0.2 tag 
+1) Clone the upstream-rpmsg repo, and checkout the v0.3 tag
    (on rpmsg_3.4_rc1 branch):
   * git clone git://github.com/GAnthony/upstream-rpmsg.git
-  * git checkout -b <branch_name> v0.2
+  * git checkout -b <branch_name> v0.3
 
 2a) The syslink3 repo (see below) etc/ directory contains the .config files 
    used for testing.
@@ -39,7 +39,6 @@ Kernel space:
   [OMAP4430] etc/panda/panda_rpmsg_3.4_rc1.config
 
 2b) Key config parameters needed for rpmsg and socket driver to build/work:
-   CONFIG_PREEMPT_NONE=y
    CONFIG_REMOTEPROC=m
    CONFIG_DAVINCI_REMOTEPROC=m
    CONFIG_RPMSG=m
@@ -60,7 +59,7 @@ User space:
 
 3) Clone the following to get SysLink3 libraries, NameServer daemon and samples:
   * git clone git://github.com/GAnthony/syslink3.git
-  * git checkout -b <branch_name> v0.2
+  * git checkout -b <branch_name> v0.3
 
 4) Makefile.inc:
   * Ensure the following settings correspond to your installation versions:
@@ -76,14 +75,14 @@ OR:
 BIOS side:
 ==========
 
-1) Clone the sysbios-rpmsg repo, and checkout the v0.2 tag 
+1) Clone the sysbios-rpmsg repo, and checkout the v0.3 tag
   (on the syslink3 branch):
   * git clone git://github.com/GAnthony/sysbios-rpmsg.git
-  * git checkout -b <branch_name> v0.2
+  * git checkout -b <branch_name> v0.3
 
 2) See the README for tools and build instructions (substitute GAnthony repo 
    for the omapzoom repo mentioned in the README).  
-   *Use the tools versions listed in the Makefile*.
+   * Use the tools versions listed in the Makefile.
 
 3) Note that the MessageQCopy, srvmgr, resmgr, pm, and grcm modules are
    not currently compatible with the new BIOS IPC transport: TransportVirtio.
@@ -110,9 +109,9 @@ Test:
    setenv bootargs 'root=/dev/nfs rw nfsroot=<nfs_server_ip>:<rfs_path> rootdelay=5 console=ttyO2,115200n8 noinitrd ip=dhcp'
    setenv bootcmd 'mmcinit 0;fatload mmc 0:1 0x80000000 uImage; bootm'
 
-3) Copy the messageq_socket binary (output of sysbios-rpmsg make) to
-   the target /lib/firmware directory, renaming to the firmware
-   filename for your platform:
+3) Copy the messageq_socket binary (from sysbios-rpmsg repo) to the target
+   /lib/firmware directory, renaming to the firmware filename for your
+   platform:
 
    [OMAPL138] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platforms_evmOMAPL138_DSP/debug/messageq_socket.xe674 <target>/lib/firmware/da8xx-dsp.elf
 
@@ -149,6 +148,8 @@ Test:
 
 % MessageQApp
 
+Entered MessageQApp_execute
+Local MessageQId: 0x1
 Remote queueId  [0x10000]
 
 Exchanging messages with remote processor...
@@ -168,14 +169,12 @@ Leaving MessageQApp_execute
 
 % dump_trace.sh
 
-3 resources at 0xc4046000
+3 resources at 0xc4045000
 main: MultiProc id = 1
 tsk1Fxn: In tsk1Fxn.
 TransportVirtioSetup_attach: remoteProcId: 0
 registering rpmsg-proto service on 61 with HOST
 tsk1Fxn: created MessageQ: SLAVE; QueueID: 0x10000
-tsk1Fxn: Calling MessageQ_open...
-tsk1Fxn: Remote MessageQ HOST; QueueID: 0x1
 Start the main loop
 Received message #0 from core 0
 Sending message Id #0 to core 0
@@ -191,7 +190,7 @@ unregistering rpmsg-proto service on 61 with HOST
 Test complete!
 
 11) To unload the firmware and stop the coprocessor:
-   (See etc/unload_firmware.sh)
+   (See etc/<platform>/unload_firmware.sh)
    % rmmod rpmsg_proto
    % rmmod virtio_rpmsg_bus
    % rmmod davinci_remoteproc   # [OMAPL138]
@@ -207,6 +206,9 @@ See the CMEM documentation link below for an overview.
 
 Passing a pointer to a shared memory buffer is demonstrated in the Linux and 
 BIOS side tests: nano_test.c.
+
+See etc/omapl138/nano_test.sh for usage with the ALSA utility arecord and the
+OMAPL138 sound driver.
 
 Build:
 ======
@@ -237,14 +239,12 @@ Documentation:
 
 Known Issues:
 ============
-* Cleanup on abnormal process termination or NameServer timeouts not completely
-  handled.
-* Static MessageQ messages sent from one side may not be correctly handled by
-  the other side's transport, resulting in memory leak.
+* Build for Panda board is broken on sysbios-rpmsg repo.
+* Cleanup on abnormal process termination or NameServer timeouts not completely   handled.
 
 TODO:
 =====
 * Multiple platform build support in both syslink3 and sysbios-rpmsg repos.
 * Add OSAL, and replace printf in API modules with Log_printf.
 * Support multiple processes.
-* Make TransportVirtio work with MessageQCopy based channels and rpmsg-omx;
+* Make TransportVirtio compatible with MessageQCopy and rpmsg-omx.
