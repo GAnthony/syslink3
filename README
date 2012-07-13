@@ -109,13 +109,13 @@ Test:
    setenv bootargs 'root=/dev/nfs rw nfsroot=<nfs_server_ip>:<rfs_path> rootdelay=5 console=ttyO2,115200n8 noinitrd ip=dhcp'
    setenv bootcmd 'mmcinit 0;fatload mmc 0:1 0x80000000 uImage; bootm'
 
-3) Copy the messageq_socket binary (from sysbios-rpmsg repo) to the target
+3) Copy the messageq_single binary (from sysbios-rpmsg repo) to the target
    /lib/firmware directory, renaming to the firmware filename for your
    platform:
 
-   [OMAPL138] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platforms_evmOMAPL138_DSP/debug/messageq_socket.xe674 <target>/lib/firmware/da8xx-dsp.elf
+   [OMAPL138] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platforms_evmOMAPL138_DSP/release/messageq_single.xe674 <target>/lib/firmware/da8xx-dsp.elf
 
-   [OMAP4430] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platform_omap4430_core0/debug/messageq_socket.xem3 <target>/lib/firmware/ducati-m3-core0.xem3
+   [OMAP4430] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platform_omap4430_core0/release/messageq_single.xem3 <target>/lib/firmware/ducati-m3-core0.xem3
 
 4) Copy the MessageQApp and lad daemon to the target:
    % cp <syslink3>/src/samples/MessageQApp <target>/ 
@@ -151,14 +151,15 @@ Test:
 Entered MessageQApp_execute
 Local MessageQId: 0x1
 Remote queueId  [0x10000]
-
-Exchanging messages with remote processor...
+Exchanging 100 messages with remote processor...
 MessageQ_get #0 Msg = 0x183b0
 Exchanged 1 messages with remote processor
 MessageQ_get #1 Msg = 0x183b0
 Exchanged 2 messages with remote processor
 MessageQ_get #2 Msg = 0x183b0
 [...]
+Exchanged 98 messages with remote processor
+MessageQ_get #98 Msg = 0x183b0
 Exchanged 99 messages with remote processor
 MessageQ_get #99 Msg = 0x183b0
 Exchanged 100 messages with remote processor
@@ -169,25 +170,23 @@ Leaving MessageQApp_execute
 
 % dump_trace.sh
 
-3 resources at 0xc4045000
-main: MultiProc id = 1
-tsk1Fxn: In tsk1Fxn.
+3 resources at 0xc4064000
+creating IPC startup task ...
 TransportVirtioSetup_attach: remoteProcId: 0
-registering rpmsg-proto service on 61 with HOST
 tsk1Fxn: created MessageQ: SLAVE; QueueID: 0x10000
-Start the main loop
-Received message #0 from core 0
-Sending message Id #0 to core 0
-Received message #1 from core 0
-Sending message Id #1 to core 0
-Received message #2 from core 0
-Sending message Id #2 to core 0
+Awaiting sync message from host...
+Received msg from (procId:remoteQueueId): 0x0:0x1
+        payload: 8 bytes; loops: 100 with printing.
+Got msg #0 (40 bytes) from core 0
+Sending msg Id #0 to core 0
+Got msg #1 (40 bytes) from core 0
+Sending msg Id #1 to core 0
 [...]
-Received message #99 from core 0
-Sending message Id #99 to core 0
-TransportVirtioSetup_detach: remoteProcId: 0
-unregistering rpmsg-proto service on 61 with HOST
-Test complete!
+Got msg #98 (40 bytes) from core 0
+Sending msg Id #98 to core 0
+Got msg #99 (40 bytes) from core 0
+Sending msg Id #99 to core 0
+Awaiting sync message from host...
 
 11) To unload the firmware and stop the coprocessor:
    (See etc/<platform>/unload_firmware.sh)
