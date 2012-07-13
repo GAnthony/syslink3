@@ -72,7 +72,7 @@ typedef struct MyMsg MyMsg;
 #define MPU_MESSAGEQNAME    "HOST"
 
 Int
-MessageQApp_execute ()
+Nanotest_execute ()
 {
     Int32                    status     = 0;
     MessageQ_Msg             msg        = NULL;
@@ -86,7 +86,7 @@ MessageQApp_execute ()
     CMEM_AllocParams         cmemAttrs;
     MyMsg                    *myMsgPtr;
 
-    printf ("Entered MessageQApp_execute\n");
+    printf ("Entered Nanotest_execute\n");
 
     /* Create the local Message Queue for receiving. */
     MessageQ_Params_init (&msgParams);
@@ -211,7 +211,7 @@ cleanup_create:
     }
 
 exit:
-    printf ("Leaving MessageQApp_execute\n\n");
+    printf ("Leaving Nanotest_execute\n\n");
 
     return (status);
 }
@@ -229,7 +229,7 @@ int main (int argc, char ** argv)
     status = SysLink_setup();
 
     if (status >= 0) {
-        MessageQApp_execute();
+        Nanotest_execute();
         SysLink_destroy();
     }
     else {

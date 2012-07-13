@@ -97,8 +97,7 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
         goto exit;
     }
     else {
-        printf ("Local MessageQId: 0x%x\n",
-            MessageQ_getQueueId(msgqHandle));
+        printf ("Local MessageQId: 0x%x\n", MessageQ_getQueueId(msgqHandle));
     }
 
     /* Poll until remote side has its messageQ created before we send: */
@@ -108,7 +107,7 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
     } while (status == MessageQ_E_NOTFOUND);
 
     if (status < 0) {
-        printf("Error in MessageQ_open [0x%x]\n", status);
+        printf("Error in MessageQ_open [%d]\n", status);
         goto cleanup;
     }
 
@@ -141,13 +140,13 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
 
         status = MessageQ_put(queueId, msg);
         if (status < 0) {
-            printf("Error in MessageQ_put [0x%x]\n", status);
+            printf("Error in MessageQ_put [%d]\n", status);
             break;
         }
 
         status = MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
         if (status < 0) {
-            printf("Error in MessageQ_get [0x%x]\n", status);
+            printf("Error in MessageQ_get [%d]\n", status);
             break;
         }
         else {
@@ -175,7 +174,7 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
 cleanup:
     status = MessageQ_delete(&msgqHandle);
     if (status < 0) {
-        printf ("Error in MessageQ_delete [0x%x]\n", status);
+        printf ("Error in MessageQ_delete [%d]\n", status);
     }
 
 exit:
@@ -205,7 +204,7 @@ int main (int argc, char * argv[])
         SysLink_destroy();
     }
     else {
-        fprintf(stderr, "SysLink_setup failed: status = 0x%x\n", status);
+        fprintf(stderr, "SysLink_setup failed: status = %d\n", status);
     }
 
     return (status);
