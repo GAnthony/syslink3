@@ -55,11 +55,12 @@
 
 #include <ti/sdo/linuxutils/cmem/include/cmem.h>
 
-struct MyMsg {
+typedef struct MyMsg {
     MessageQ_MsgHeader header;
     unsigned long bufPhys;
-};
-typedef struct MyMsg MyMsg;
+} MyMsg;
+
+#define VERBOSE 0
 
 /* App defines:  Must match on remote proc side: */
 #define NUM_SLAVE_MSGS_PER_HOST_MSG   4
@@ -166,7 +167,7 @@ Nanotest_execute ()
            }
            else {
                myMsgPtr = (MyMsg *)msg;
-#ifdef VERBOSE
+#if  VERBOSE
                printf ("Received msgId: %d, size: %d, *msg: 0x%lx\n",
                        MessageQ_getMsgId(msg), MessageQ_getMsgSize(msg),
                        myMsgPtr->bufPhys);
