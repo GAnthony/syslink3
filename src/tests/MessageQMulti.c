@@ -61,7 +61,7 @@
  */
 
 #define  NUM_LOOPS_DFLT   1000
-#define  NUM_THREADS_DFLT 20
+#define  NUM_THREADS_DFLT 10
 #define  MAX_NUM_THREADS  50
 
 /** ============================================================================
