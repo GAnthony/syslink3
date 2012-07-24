@@ -172,7 +172,6 @@ Leaving MessageQApp_execute
 
 3 IpcMemory entries at 0xc4000000
 messageq_single.c:main: MultiProc id = 1
-creating IPC startup task ...
 TransportVirtioSetup_attach: remoteProcId: 0
 tsk1Fxn: created MessageQ: SLAVE; QueueID: 0x10000
 Awaiting sync message from host...
