@@ -28,15 +28,16 @@ Linux side:
 Kernel space:
 ------------
 
-1) Clone the upstream-rpmsg repo, and checkout the v0.3 tag
+1) Clone the upstream-rpmsg repo, and checkout the v0.4 tag
    (on rpmsg_3.4_rc1 branch):
   * git clone git://github.com/GAnthony/upstream-rpmsg.git
-  * git checkout -b <branch_name> v0.3
+  * git checkout -b <branch_name> v0.4
 
 2a) The syslink3 repo (see below) etc/ directory contains the .config files 
    used for testing.
-  [OMAPL138] etc/omapl138/omapl138_rpmsg_3.4_rc1.config
-  [OMAP4430] etc/panda/panda_rpmsg_3.4_rc1.config
+  [OMAPL138]  etc/omapl138/omapl138_rpmsg_3.4_rc1.config
+  [HAWKBOARD] etc/omapl138/hawkboard_rpmsg_3.4_rc1.config
+  [OMAP4430]  etc/panda/panda_rpmsg_3.4_rc1.config
 
 2b) Key config parameters needed for rpmsg and socket driver to build/work:
    CONFIG_REMOTEPROC=m
@@ -59,12 +60,16 @@ User space:
 
 3) Clone the following to get SysLink3 libraries, NameServer daemon and samples:
   * git clone git://github.com/GAnthony/syslink3.git
-  * git checkout -b <branch_name> v0.3
+  * git checkout -b <branch_name> v0.4
 
 4) Makefile.inc:
   * Ensure the following settings correspond to your installation versions:
     IPCPRODVER = <ipc version> 
     CMEMPRODVER = <linuxutils version> 
+  * If your Code Sourcery Toolchain is not included on your PATH, specify it
+    in the file:
+    CROSS = <path of your Code Sourcery Toolchain>
+            e.g. /opt/cs/arm-2010q1/bin/arm-none-linux-gnueabi-
 
 5) Build:
   % make REPO=<path to your tools repository>
@@ -75,10 +80,10 @@ OR:
 BIOS side:
 ==========
 
-1) Clone the sysbios-rpmsg repo, and checkout the v0.3 tag
+1) Clone the sysbios-rpmsg repo, and checkout the v0.4 tag
   (on the syslink3 branch):
   * git clone git://github.com/GAnthony/sysbios-rpmsg.git
-  * git checkout -b <branch_name> v0.3
+  * git checkout -b <branch_name> v0.4
 
 2) See the README for tools and build instructions (substitute GAnthony repo 
    for the omapzoom repo mentioned in the README).  
@@ -86,9 +91,9 @@ BIOS side:
 
 3) Note that the MessageQCopy, srvmgr, resmgr, pm, and grcm modules are
    not currently compatible with the new BIOS IPC transport: TransportVirtio.
-   They build, but are not compiled into the test sample: messageq_socket.
+   They build, but are not compiled into the test sample: messageq_single.
 
-4) The result of this build will be a messageq_socket ELF binary in the 
+4) The result of this build will be a messageq_single ELF binary in the
    src/ti/ipc/tests/<ti_platforms_X>/<profile>/ directory.
 
 Test:
@@ -118,8 +123,8 @@ Test:
    [OMAP4430] % cp <sysbios-rpmsg>/src/ti/ipc/tests/ti_platform_omap4430_core0/release/messageq_single.xem3 <target>/lib/firmware/ducati-m3-core0.xem3
 
 4) Copy the MessageQApp and lad daemon to the target:
-   % cp <syslink3>/src/samples/MessageQApp <target>/ 
-   % cp <syslink3>/src/daemon/lad <target>/
+   % cp <syslink3>/src/samples/MessageQApp <target>/home/user
+   % cp <syslink3>/src/daemon/lad <target>/home/user
 
 5) On the target, load the BIOS firmware and rpmsg socket driver:
    (Eg: See etc/<platform>/load_firmware.sh):
@@ -220,7 +225,7 @@ Build:
 Install:
 ========
 1) Add mem= line to carveout CMEM memory from Linux: 
-   (eg for OMAPL138 EVM with 128Kb DDR):
+   (eg for OMAPL138 EVM with 128M DDR):
       # setenv bootargs "mem=112M console=ttyS2,115200n8 root=/dev/nfs rw nfsroot=146.252.160.87:/exports/gp/omapl138_angstrom_rfs,nolock ip=dhcp rootdelay=5"
 
 2) insmod cmemk.ko, specifying physical start, end addresses:
