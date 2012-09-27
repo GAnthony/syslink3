@@ -63,12 +63,13 @@
 #define  NUM_LOOPS_DFLT   1000
 #define  NUM_THREADS_DFLT 10
 #define  MAX_NUM_THREADS  50
+#define  ONE_PROCESS_ONLY (-1)
 
 /** ============================================================================
  *  Globals
  *  ============================================================================
  */
-static Int     numLoops, numThreads;
+static Int     numLoops, numThreads, procNum;
 
 struct thread_info {    /* Used as argument to thread_start() */
     pthread_t thread_id;        /* ID returned by pthread_create() */
@@ -194,6 +195,7 @@ int main (int argc, char ** argv)
     /* Parse Args: */
     numLoops = NUM_LOOPS_DFLT;
     numThreads = NUM_THREADS_DFLT;
+    procNum = ONE_PROCESS_ONLY;
     switch (argc) {
         case 1: 
            /* use defaults */
@@ -205,13 +207,23 @@ int main (int argc, char ** argv)
            numThreads = atoi(argv[1]);
            numLoops   = atoi(argv[2]);
            break;
+        case 4:
+           /* We force numThreads = 1 if doing a multiProcess test: */
+           numThreads = 1;
+           numLoops   = atoi(argv[2]);
+           procNum = atoi(argv[3]);
+           break;
         default:
-           printf("Usage: %s [<numThreads>] [<numLoops>]\n", argv[0]);
+           printf("Usage: %s [<numThreads>] [<numLoops>] [<Process #]>\n",
+                   argv[0]);
            printf("\tDefaults: numThreads: 10, numLoops: 100\n");
            printf("\tMax Threads: 100\n");
            exit(0);
     }
     printf("Using numThreads: %d, numLoops: %d\n", numThreads, numLoops);
+    if (procNum != ONE_PROCESS_ONLY) {
+        printf("ProcNum: %d\n", procNum);
+    }
 
     status = SysLink_setup();
     if (status < 0) {
@@ -223,7 +235,7 @@ int main (int argc, char ** argv)
     for (i = 0; i < numThreads; i++) {
         /* Create the test thread: */
         printf ("creating pingThreadFxn: %d\n", i);
-        threads[i].thread_num = i;
+	threads[i].thread_num = (procNum == ONE_PROCESS_ONLY)? i: procNum;
         ret = pthread_create(&threads[i].thread_id, NULL, &pingThreadFxn,
                            &(threads[i].thread_num));
         if (ret) {
