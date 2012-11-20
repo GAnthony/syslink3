@@ -42,8 +42,11 @@
 
 /* This must match BIOS side MultiProc configuration for given platform!: */
 MultiProc_Config _MultiProc_cfg =  {
-   .numProcessors = 2,
+   .numProcessors = 5,
    .nameList[0] = "HOST",
    .nameList[1] = "CORE0",
+   .nameList[2] = "CORE1",
+   .nameList[3] = "CORE2",
+   .nameList[4] = "CORE3",
    .id = 0,                 /* The host is always zero */
 };
