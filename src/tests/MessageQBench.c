@@ -54,9 +54,10 @@
 #define MINPAYLOADSIZE      (2 * sizeof(UInt32))
 
 /* App defines: Must match on remote proc side: */
-#define NUM_LOOPS           1000  /* Number of transfers to be tested. */
+#define NUM_LOOPS_DFLT           1000  /* Number of transfers to be tested. */
 #define HEAPID              0u
-#define CORE0_MESSAGEQNAME  "SLAVE"
+#define PROC_ID_DFLT        1     /* Host is zero, remote cores start at 1 */
+#define SLAVE_MESSAGEQNAME  "SLAVE"
 #define MPU_MESSAGEQNAME    "HOST"
 
 
@@ -75,7 +76,7 @@ long diff(struct timespec start, struct timespec end)
     return (temp.tv_sec * 1000000UL + temp.tv_nsec / 1000);
 }
 
-Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
+Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize, UInt16 procId)
 {
     Int32                    status     = 0;
     MessageQ_Msg             msg        = NULL;
@@ -83,6 +84,7 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
     UInt16                   i;
     MessageQ_QueueId         queueId = MessageQ_INVALIDMESSAGEQ;
     MessageQ_Handle          msgqHandle;
+    char                     remoteQueueName[64];
     struct timespec          start, end;
     long                     elapsed;
     UInt32 *params;
@@ -100,9 +102,12 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
         printf ("Local MessageQId: 0x%x\n", MessageQ_getQueueId(msgqHandle));
     }
 
+    sprintf(remoteQueueName, "%s_%s", SLAVE_MESSAGEQNAME,
+             MultiProc_getName(procId));
+
     /* Poll until remote side has its messageQ created before we send: */
     do {
-        status = MessageQ_open(CORE0_MESSAGEQNAME, &queueId);
+        status = MessageQ_open(remoteQueueName, &queueId);
         sleep (1);
     } while (status == MessageQ_E_NOTFOUND);
 
@@ -128,7 +133,8 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
     MessageQ_put(queueId, msg);
     MessageQ_get(msgqHandle, &msg, MessageQ_FOREVER);
 
-    printf("Exchanging %d messages with remote processor...\n", numLoops);
+    printf("Exchanging %d messages with remote processor %s...\n",
+           numLoops, MultiProc_getName(procId));
 
     clock_gettime(CLOCK_REALTIME, &start);
 
@@ -165,7 +171,8 @@ Int MessageQApp_execute(UInt32 numLoops, UInt32 payloadSize)
     elapsed = diff(start, end);
 
     if (numLoops > 0) {
-        printf("Avg round trip time: %ld usecs\n", elapsed / numLoops);
+        printf("%s: Avg round trip time: %ld usecs\n",
+               MultiProc_getName(procId), elapsed / numLoops);
     }
 
     MessageQ_free(msg);
@@ -186,9 +193,11 @@ exit:
 int main (int argc, char * argv[])
 {
     Int32 status = 0;
-    UInt32 numLoops = NUM_LOOPS;
+    UInt32 numLoops = NUM_LOOPS_DFLT;
     UInt32 payloadSize = MINPAYLOADSIZE;
+    UInt16 procId = PROC_ID_DFLT;
 
+    /* Parse args: */
     if (argc > 1) {
         numLoops = strtoul(argv[1], NULL, 0);
     }
@@ -197,10 +206,27 @@ int main (int argc, char * argv[])
         payloadSize = MAX(strtoul(argv[2], NULL, 0), MINPAYLOADSIZE);
     }
 
+    if (argc > 3) {
+        procId  = atoi(argv[3]);
+    }
+
+    if (argc > 4) {
+        printf("Usage: %s [<numLoops>] [<payloadSize>] [<ProcId>]\n", argv[0]);
+        printf("\tDefaults: numLoops: %d; payloadSize: %d, ProcId: %d\n",
+                   NUM_LOOPS_DFLT, MINPAYLOADSIZE, PROC_ID_DFLT);
+        exit(0);
+    }
+    if (procId >= MultiProc_getNumProcessors()) {
+        printf("ProcId must be less than %d\n", MultiProc_getNumProcessors());
+        exit(0);
+    }
+    printf("Using numLoops: %d; payloadSize: %d, procId : %d\n",
+            numLoops, payloadSize, procId);
+
     status = SysLink_setup();
 
     if (status >= 0) {
-        MessageQApp_execute(numLoops, payloadSize);
+        MessageQApp_execute(numLoops, payloadSize, procId);
         SysLink_destroy();
     }
     else {
