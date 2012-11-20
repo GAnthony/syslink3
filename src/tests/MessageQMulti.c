@@ -214,7 +214,7 @@ int main (int argc, char ** argv)
            procNum = atoi(argv[3]);
            break;
         default:
-           printf("Usage: %s [<numThreads>] [<numLoops>] [<Process #]>\n",
+           printf("Usage: %s [<numThreads]> [<numLoops>] [<process #>]\n",
                    argv[0]);
            printf("\tDefaults: numThreads: 10, numLoops: 100\n");
            printf("\tMax Threads: 100\n");
