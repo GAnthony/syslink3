@@ -342,8 +342,10 @@ static void *listener_cb(void *arg)
                 NameServer_module->recvSock[procId] == INVALIDSOCKET) {
                 continue;
             }
-            if (FD_ISSET(NameServer_module->recvSock[procId], &rfds)) {
-                LOG0("NameServer: Listener got NameServer message!\n")
+            sock = NameServer_module->recvSock[procId];
+            if (FD_ISSET(sock, &rfds)) {
+                LOG1("NameServer: Listener got NameServer message "
+                     "from sock: %d!\n", sock);
                 /* Get NameServer message and process: */
                 memset(&fromAddr, 0, sizeof(fromAddr));
                 len = sizeof(fromAddr);
