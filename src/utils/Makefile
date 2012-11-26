@@ -32,7 +32,7 @@
 
 include	../../Makefile.inc
 
-OBJ	= MultiProc.o NameServer_client.o SocketFxns.o
+OBJ	= LAD_client.o MultiProc.o SocketFxns.o
 
 libutils.a: $(OBJ)
 	$(AR) -rcs libutils.a $(OBJ)

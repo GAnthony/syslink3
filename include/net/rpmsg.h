@@ -37,7 +37,7 @@
 #define __NET_RPMSG_H
 
 #include <linux/types.h>
-#include <linux/socket.h>
+#include <sys/socket.h>
 
 /* user space needs this */
 #ifndef AF_RPMSG

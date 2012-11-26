@@ -40,7 +40,12 @@
 /*============================================================================
  *  @file   MessageQ.c
  *
- *  @brief  MessageQ module implementation
+ *  @brief  MessageQ module "client" implementation
+ *
+ *  This implementation is geared for use in a "client/server" model, whereby
+ *  system-wide data is maintained in a "server" component and process-
+ *  specific data is handled here.  At the moment, this implementation
+ *  connects and communicates with LAD for the server connection.
  *
  *  The MessageQ module supports the structured sending and receiving of
  *  variable length messages. This module can be used for homogeneous or
@@ -156,12 +161,13 @@
 /* Socket utils: */
 #include <SocketFxns.h>
 
+#include <ladclient.h>
+#include <_lad.h>
+
 /* =============================================================================
  * Macros/Constants
  * =============================================================================
  */
-
-//#define VERBOSE
 
 /*!
  *  @brief  Name of the reserved NameServer used for MessageQ.
@@ -181,9 +187,6 @@
 #define TRACESHIFT    12
 #define TRACEMASK     0x1000
 
-/* Slot 0 reserved for NameServer messages: */
-#define RESERVED_MSGQ_INDEX  1
-
 /* Define BENCHMARK to quiet key MessageQ APIs: */
 //#define BENCHMARK
 
@@ -200,24 +203,12 @@ typedef struct MessageQ_ModuleObject {
     /*!< Handle to the local NameServer used for storing GP objects */
     pthread_mutex_t     gate;
     /*!< Handle of gate to be used for local thread safety */
-    MessageQ_Config     cfg;
-    /*!< Current config values */
-    MessageQ_Config     defaultCfg;
-    /*!< Default config values */
     MessageQ_Params     defaultInstParams;
     /*!< Default instance creation parameters */
     int                 sock[MultiProc_MAXPROCESSORS];
     /*!< Sockets to for sending to each remote processor */
-    MessageQ_Handle *   queues;
-    /*!< Global array of message queues */
-    UInt16              numQueues;
-    /*!< Initial number of messageQ objects allowed */
-    UInt16              numHeaps;
-    /*!< Number of Heaps */
-    Bool                canFreeQueues;
-    /*!< Grow option */
-    Bits16              seqNum;
-    /*!< sequence number. */
+    int                 seqNum;
+    /*!< Process-specific sequence number */
 } MessageQ_ModuleObject;
 
 /*!
@@ -228,13 +219,14 @@ typedef struct MessageQ_Object_tag {
     /*! Instance specific creation parameters */
     MessageQ_QueueId        queue;
     /* Unique id */
-    Ptr                     nsKey;
-    /* NameServer key */
     int                     fd[MultiProc_MAXPROCESSORS];
     /* File Descriptor to block on messages from remote processors. */
     int                     unblockFd;
     /* Write this fd to unblock the select() call in MessageQ _get() */
+    void                    *serverHandle;
 } MessageQ_Object;
+
+static Bool verbose = FALSE;
 
 
 /* =============================================================================
@@ -243,15 +235,8 @@ typedef struct MessageQ_Object_tag {
  */
 static MessageQ_ModuleObject MessageQ_state =
 {
+    .refCount               = 0,
     .nameServer             = NULL,
-    .queues                 = NULL,
-    .numQueues              = 2u,
-    .numHeaps               = 1u,
-    .canFreeQueues          = FALSE,
-    .defaultCfg.traceFlag   = FALSE,
-    .defaultCfg.numHeaps    = 1u,
-    .defaultCfg.maxRuntimeEntries = 32u,
-    .defaultCfg.maxNameLen    = 32u,
 };
 
 /*!
@@ -266,11 +251,8 @@ MessageQ_ModuleObject * MessageQ_module = &MessageQ_state;
  * Forward declarations of internal functions
  * =============================================================================
  */
-/* Grow the MessageQ table */
-static UInt16 _MessageQ_grow (MessageQ_Object * obj);
 
 /* This is a helper function to initialize a message. */
-static Void MessageQ_msgInit (MessageQ_Msg msg);
 static Int transportCreateEndpoint(int * fd, UInt16 rprocId, UInt16 queueIndex);
 static Int transportCloseEndpoint(int fd);
 static Int transportGet(int sock, MessageQ_Msg * retMsg);
@@ -285,62 +267,97 @@ static Int transportPut(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId);
  */
 Void MessageQ_getConfig (MessageQ_Config * cfg)
 {
+    Int status;
+    LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
+
     assert (cfg != NULL);
 
-    /* If setup has not yet been called... */
-    if (MessageQ_module->refCount < 1)  {
-        memcpy (cfg, &MessageQ_module->defaultCfg, sizeof (MessageQ_Config));
+    handle = LAD_findHandle();
+    if (handle == LAD_MAXNUMCLIENTS) {
+        PRINTVERBOSE1(
+          "MessageQ_getConfig: can't find connection to daemon for pid %d\n",
+           getpid())
+
+        return;
     }
-    else {
-        memcpy (cfg, &MessageQ_module->cfg, sizeof (MessageQ_Config));
+
+    cmd.cmd = LAD_MESSAGEQ_GETCONFIG;
+    cmd.clientId = handle;
+
+    if ((status = LAD_putCommand(&cmd)) != LAD_SUCCESS) {
+        PRINTVERBOSE1(
+          "MessageQ_getConfig: sending LAD command failed, status=%d\n", status)
+        return;
     }
+
+    if ((status = LAD_getResponse(handle, &rsp)) != LAD_SUCCESS) {
+        PRINTVERBOSE1("MessageQ_getConfig: no LAD response, status=%d\n", status)
+        return;
+    }
+    status = rsp.messageQGetConfig.status;
+
+    PRINTVERBOSE2(
+      "MessageQ_getConfig: got LAD response for client %d, status=%d\n",
+      handle, status)
+
+    memcpy(cfg, &rsp.messageQGetConfig.cfg, sizeof(*cfg));
+
+    return;
 }
 
 /* Function to setup the MessageQ module. */
 Int MessageQ_setup (const MessageQ_Config * cfg)
 {
-    Int                    status = MessageQ_S_SUCCESS;
-    NameServer_Params      params;
-    int                    i;
+    Int status;
+    LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
+    Int i;
 
-    /* TBD: Protect from multiple threads. */
-    MessageQ_module->refCount++;
-    if (MessageQ_module->refCount > 1) {
-        status = MessageQ_S_ALREADYSETUP;
-        printf ("MessageQ module has been already setup in this process.\n"
-                   "    RefCount: [%d]\n", MessageQ_module->refCount);
-        goto exit;
+    handle = LAD_findHandle();
+    if (handle == LAD_MAXNUMCLIENTS) {
+        PRINTVERBOSE1(
+          "MessageQ_setup: can't find connection to daemon for pid %d\n",
+           getpid())
+
+        return MessageQ_E_RESOURCE;
     }
 
-    /* Initialize the parameters */
-    NameServer_Params_init (&params);
-    params.maxValueLen = sizeof (UInt32);
-    params.maxNameLen  = cfg->maxNameLen;
+    cmd.cmd = LAD_MESSAGEQ_SETUP;
+    cmd.clientId = handle;
+    memcpy(&cmd.args.messageQSetup.cfg, cfg, sizeof(*cfg));
 
-    /* Create the nameserver for modules */
-    MessageQ_module->nameServer = NameServer_create (MessageQ_NAMESERVER,
-                                &params);
+    if ((status = LAD_putCommand(&cmd)) != LAD_SUCCESS) {
+        PRINTVERBOSE1(
+          "MessageQ_setup: sending LAD command failed, status=%d\n", status)
+        return MessageQ_E_FAIL;
+    }
+
+    if ((status = LAD_getResponse(handle, &rsp)) != LAD_SUCCESS) {
+        PRINTVERBOSE1("MessageQ_setup: no LAD response, status=%d\n", status)
+        return(status);
+    }
+    status = rsp.setup.status;
+
+    PRINTVERBOSE2(
+      "MessageQ_setup: got LAD response for client %d, status=%d\n",
+      handle, status)
+
+    MessageQ_module->nameServer = rsp.setup.nameServerHandle;
+    MessageQ_module->seqNum = 0;
 
     /* Create a default local gate. */
     pthread_mutex_init (&(MessageQ_module->gate), NULL);
-
-    memcpy (&MessageQ_module->cfg, (void *) cfg, sizeof (MessageQ_Config));
-
-    MessageQ_module->seqNum = 0;
-
-    MessageQ_module->numHeaps = cfg->numHeaps;
-
-    MessageQ_module->numQueues = cfg->maxRuntimeEntries;
-    MessageQ_module->queues = (MessageQ_Handle *)
-        calloc (1, sizeof (MessageQ_Handle) * MessageQ_module->numQueues);
 
     /* Clear sockets array. */
     for (i = 0; i < MultiProc_MAXPROCESSORS; i++) {
        MessageQ_module->sock[i]      = Transport_INVALIDSOCKET;
     }
 
-exit:
-    return (status);
+
+    return status;
 }
 
 /*
@@ -350,56 +367,40 @@ exit:
  */
 Int MessageQ_destroy (void)
 {
-    Int    status    = MessageQ_S_SUCCESS;
-    Int    tmpStatus = MessageQ_S_SUCCESS;
-    UInt32 i;
+    Int status;
+    LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
-#ifdef VERBOSE
-    printf ("MessageQ_destroy: Entered.\n");
-#endif
+    handle = LAD_findHandle();
+    if (handle == LAD_MAXNUMCLIENTS) {
+        PRINTVERBOSE1(
+          "MessageQ_destroy: can't find connection to daemon for pid %d\n",
+           getpid())
 
-    if (MessageQ_module->refCount > 0) {
-        /* Delete any Message Queues that have not been deleted so far. */
-        for (i = 0; i< MessageQ_module->numQueues; i++) {
-            if (MessageQ_module->queues [i] != NULL) {
-                tmpStatus = MessageQ_delete (&(MessageQ_module->queues [i]));
-            }
-        }
+        return MessageQ_E_RESOURCE;
     }
 
-    /* Decrease the refCount */
-    MessageQ_module->refCount--;
+    cmd.cmd = LAD_MESSAGEQ_DESTROY;
+    cmd.clientId = handle;
 
-    if (MessageQ_module->nameServer != NULL) {
-        /* Delete the nameserver for modules */
-        tmpStatus = NameServer_delete (&MessageQ_module->nameServer);
-        if ((tmpStatus < 0) && (status >= 0)) {
-              status = tmpStatus;
-        }
+    if ((status = LAD_putCommand(&cmd)) != LAD_SUCCESS) {
+        PRINTVERBOSE1(
+          "MessageQ_destroy: sending LAD command failed, status=%d\n", status)
+        return MessageQ_E_FAIL;
     }
 
-    /* Since MessageQ_module->gate was not allocated, no need to delete. */
-
-    /* Assert that all sockets have already been closed. */
-    for (i = 0; i < MultiProc_MAXPROCESSORS; i++) {
-        assert(MessageQ_module->sock[i] == Transport_INVALIDSOCKET);
+    if ((status = LAD_getResponse(handle, &rsp)) != LAD_SUCCESS) {
+        PRINTVERBOSE1("MessageQ_destroy: no LAD response, status=%d\n", status)
+        return(status);
     }
+    status = rsp.status;
 
-    if (MessageQ_module->queues != NULL) {
-        free (MessageQ_module->queues);
-        MessageQ_module->queues = NULL;
-    }
+    PRINTVERBOSE2(
+      "MessageQ_destroy: got LAD response for client %d, status=%d\n",
+      handle, status)
 
-    memset (&MessageQ_module->cfg, 0, sizeof (MessageQ_Config));
-    MessageQ_module->numQueues  = 0u;
-    MessageQ_module->numHeaps   = 1u;
-    MessageQ_module->canFreeQueues = TRUE;
-
-#ifdef VERBOSE
-    printf ("MessageQ_destroy: Exited.\n");
-#endif
-
-    return (status);
+    return status;
 }
 
 /* Function to initialize the parameters for the MessageQ instance. */
@@ -419,52 +420,68 @@ Void MessageQ_Params_init (MessageQ_Params * params)
  */
 MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
 {
-    Int                 status    = MessageQ_S_SUCCESS;
-    MessageQ_Object   * obj    = NULL;
-    Bool                found  = FALSE;
-    UInt16              count  = 0;
-    UInt16              queueIndex = 0u;
-    UInt16              procId;
-    int                 i;
-    UInt16              rprocId;
+    Int                   status    = MessageQ_S_SUCCESS;
+    MessageQ_Object *     obj    = NULL;
+    UInt16                queueIndex = 0u;
+    UInt16                procId;
+    UInt16                rprocId;
+    LAD_ClientHandle      handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
+
+    handle = LAD_findHandle();
+    if (handle == LAD_MAXNUMCLIENTS) {
+        PRINTVERBOSE1(
+          "MessageQ_create: can't find connection to daemon for pid %d\n",
+           getpid())
+
+        return NULL;
+    }
+
+    cmd.cmd = LAD_MESSAGEQ_CREATE;
+    cmd.clientId = handle;
+    strncpy(cmd.args.messageQCreate.name, name,
+            LAD_MESSAGEQCREATEMAXNAMELEN - 1);
+    cmd.args.messageQCreate.name[LAD_MESSAGEQCREATEMAXNAMELEN - 1] = '\0';
+    if (params) {
+        memcpy(&cmd.args.messageQCreate.params, params, sizeof(*params));
+    }
+
+    if ((status = LAD_putCommand(&cmd)) != LAD_SUCCESS) {
+        PRINTVERBOSE1(
+          "MessageQ_create: sending LAD command failed, status=%d\n", status)
+        return NULL;
+    }
+
+    if ((status = LAD_getResponse(handle, &rsp)) != LAD_SUCCESS) {
+        PRINTVERBOSE1("MessageQ_create: no LAD response, status=%d\n", status)
+        return NULL;
+    }
+    status = rsp.messageQCreate.status;
+
+    PRINTVERBOSE2(
+      "MessageQ_create: got LAD response for client %d, status=%d\n",
+      handle, status)
+
+    if (status == -1) {
+        PRINTVERBOSE1(
+          "MessageQ_create: MessageQ server operation failed, status=%d\n",
+          status)
+	return NULL;
+    }
 
     /* Create the generic obj */
-    obj = (MessageQ_Object *) calloc (1, sizeof (MessageQ_Object));
-
-    pthread_mutex_lock (&(MessageQ_module->gate));
-    count = MessageQ_module->numQueues;
-
-    /* Search the dynamic array for any holes */
-    /* We start from 1, as 0 is reserved for binding NameServer: */
-    for (i = RESERVED_MSGQ_INDEX; i < count ; i++) {
-        if (MessageQ_module->queues [i] == NULL) {
-            MessageQ_module->queues [i] = (MessageQ_Handle) obj;
-            queueIndex = i;
-            found = TRUE;
-            break;
-        }
-    }
-
-    if (found == FALSE) {
-        /* Growth is always allowed. */
-        queueIndex = _MessageQ_grow (obj);
-    }
-
-    pthread_mutex_unlock (&(MessageQ_module->gate));
+    obj = (MessageQ_Object *)calloc(1, sizeof (MessageQ_Object));
 
     if (params != NULL) {
        /* Populate the params member */
         memcpy((Ptr) &obj->params, (Ptr)params, sizeof (MessageQ_Params));
     }
 
-    procId = MultiProc_self ();
-    /* create globally unique messageQ ID: */
-    obj->queue = (MessageQ_QueueId)(((UInt32)(procId) << 16) | queueIndex);
-
-    if (name != NULL) {
-        obj->nsKey = NameServer_addUInt32(MessageQ_module->nameServer, name,
-                                          obj->queue);
-    }
+    procId = MultiProc_self();
+    queueIndex = (MessageQ_QueueIndex)rsp.messageQCreate.queueId;
+    obj->queue = rsp.messageQCreate.queueId;
+    obj->serverHandle = rsp.messageQCreate.serverHandle;
 
     /*
      * Create a set of communication endpoints (one per each remote proc),
@@ -477,10 +494,9 @@ MessageQ_Handle MessageQ_create (String name, const MessageQ_Params * params)
             /* Skip creating an endpoint for ourself. */
             continue;
         }
-#ifdef VERBOSE
-        printf ("MessageQ_create: creating endpoint for: %s, rprocId: %d\n",
-                name, rprocId);
-#endif
+
+        PRINTVERBOSE3("MessageQ_create: creating endpoint for: %s, rprocId: %d, queueIndex: %d\n", name, rprocId, queueIndex)
+
         status = transportCreateEndpoint(&obj->fd[rprocId], rprocId,
                                            queueIndex);
         if (status < 0) {
@@ -518,8 +534,41 @@ Int MessageQ_delete (MessageQ_Handle * handlePtr)
     Int               status    = MessageQ_S_SUCCESS;
     MessageQ_Object * obj       = NULL;
     UInt16            rprocId;
+    LAD_ClientHandle      handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
+
+    handle = LAD_findHandle();
+    if (handle == LAD_MAXNUMCLIENTS) {
+        PRINTVERBOSE1(
+          "MessageQ_delete: can't find connection to daemon for pid %d\n",
+           getpid())
+
+        return MessageQ_E_FAIL;
+    }
 
     obj = (MessageQ_Object *) (*handlePtr);
+
+    cmd.cmd = LAD_MESSAGEQ_DELETE;
+    cmd.clientId = handle;
+    cmd.args.messageQDelete.serverHandle = obj->serverHandle;
+
+    if ((status = LAD_putCommand(&cmd)) != LAD_SUCCESS) {
+        PRINTVERBOSE1(
+          "MessageQ_delete: sending LAD command failed, status=%d\n", status)
+        return MessageQ_E_FAIL;
+    }
+
+    if ((status = LAD_getResponse(handle, &rsp)) != LAD_SUCCESS) {
+        PRINTVERBOSE1("MessageQ_delete: no LAD response, status=%d\n", status)
+        return MessageQ_E_FAIL;
+    }
+    status = rsp.messageQDelete.status;
+
+    PRINTVERBOSE2(
+      "MessageQ_delete: got LAD response for client %d, status=%d\n",
+      handle, status)
+
 
     /* Close the event used for MessageQ_unblock(): */
     close(obj->unblockFd);
@@ -530,27 +579,6 @@ Int MessageQ_delete (MessageQ_Handle * handlePtr)
             status = transportCloseEndpoint(obj->fd[rprocId]);
         }
     }
-
-    if (obj->nsKey != NULL) {
-        /* Remove from the name server */
-        status = NameServer_removeEntry (MessageQ_module->nameServer,
-                                         obj->nsKey);
-        if (status < 0) {
-            /* Override with a MessageQ status code. */
-            status = MessageQ_E_FAIL;
-        }
-        else {
-            status = MessageQ_S_SUCCESS;
-        }
-    }
-
-    pthread_mutex_lock (&(MessageQ_module->gate));
-
-    /* Clear the MessageQ obj from array. */
-    MessageQ_module->queues [(MessageQ_QueueIndex) (obj->queue)] = NULL;
-
-    /* Release the local lock */
-    pthread_mutex_unlock (&(MessageQ_module->gate));
 
     /* Now free the obj */
     free (obj);
@@ -877,9 +905,7 @@ Int MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
     Int     status = MessageQ_S_SUCCESS;
     int     sock;
 
-#ifdef VERBOSE
-    printf ("MessageQ_attach: remoteProcId: %d\n", remoteProcId);
-#endif
+    PRINTVERBOSE1("MessageQ_attach: remoteProcId: %d\n", remoteProcId)
 
     if (remoteProcId >= MultiProc_MAXPROCESSORS) {
         status = MessageQ_E_INVALIDPROCID;
@@ -898,9 +924,7 @@ Int MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr)
                        errno, strerror(errno));
         }
         else  {
-#ifdef VERBOSE
-            printf ("MessageQ_attach: created send socket: %d\n", sock);
-#endif
+            PRINTVERBOSE1("MessageQ_attach: created send socket: %d\n", sock)
             MessageQ_module->sock[remoteProcId] = sock;
             /* Attempt to connect: */
             ConnectSocket(sock, remoteProcId, MESSAGEQ_RPMSG_PORT);
@@ -939,9 +963,7 @@ Int MessageQ_detach (UInt16 remoteProcId)
                        errno, strerror(errno));
     }
     else {
-#ifdef VERBOSE
-        printf ("MessageQ_detach: closed socket: %d\n", sock);
-#endif
+        PRINTVERBOSE1("MessageQ_detach: closed socket: %d\n", sock)
         MessageQ_module->sock[remoteProcId] = Transport_INVALIDSOCKET;
     }
 
@@ -951,68 +973,58 @@ exit:
     return (status);
 }
 
-/*!
- *  @brief   Grow the MessageQ table
- *
- *  @param   obj     Pointer to the MessageQ object.
- *
- *  @sa      _MessageQ_grow
- *
- */
-static UInt16 _MessageQ_grow (MessageQ_Object * obj)
-{
-    UInt16            queueIndex = MessageQ_module->numQueues;
-    UInt16            oldSize;
-    MessageQ_Handle * queues;
-    MessageQ_Handle * oldQueues;
-
-    /* No parameter validation required since this is an internal function. */
-    oldSize = (MessageQ_module->numQueues) * sizeof (MessageQ_Handle);
-
-    /* Allocate larger table */
-    queues = calloc (1, (oldSize + sizeof (MessageQ_Handle)));
-
-    /* Copy contents into new table */
-    memcpy (queues, MessageQ_module->queues, oldSize);
-
-    /* Fill in the new entry */
-    queues[queueIndex] = (MessageQ_Handle)obj;
-
-    /* Hook-up new table */
-    oldQueues = MessageQ_module->queues;
-    MessageQ_module->queues = queues;
-    MessageQ_module->numQueues++;
-
-    /* Delete old table if not statically defined */
-    if (MessageQ_module->canFreeQueues == TRUE) {
-        free (oldQueues);
-    }
-    else {
-        MessageQ_module->canFreeQueues = TRUE;
-    }
-
-#ifdef VERBOSE
-    printf ("_MessageQ_grow: queueIndex: 0x%x\n", queueIndex);
-#endif
-
-    return (queueIndex);
-}
-
 /*
  * This is a helper function to initialize a message.
  */
-static Void MessageQ_msgInit (MessageQ_Msg msg)
+Void MessageQ_msgInit (MessageQ_Msg msg)
 {
-    msg->reserved0 = 0;  /* We set this to distinguish from NameServerMsg */
-    msg->replyId   = (UInt16) MessageQ_INVALIDMESSAGEQ;
-    msg->msgId     = MessageQ_INVALIDMSGID;
-    msg->dstId     = (UInt16) MessageQ_INVALIDMESSAGEQ;
-    msg->flags     =   MessageQ_HEADERVERSION | MessageQ_NORMALPRI;
-    msg->srcProc   = MultiProc_self ();
+#if 0
+    Int                 status    = MessageQ_S_SUCCESS;
+    LAD_ClientHandle handle;
+    struct LAD_CommandObj cmd;
+    union LAD_ResponseObj rsp;
 
-    pthread_mutex_lock (&(MessageQ_module->gate));
+    handle = LAD_findHandle();
+    if (handle == LAD_MAXNUMCLIENTS) {
+        PRINTVERBOSE1(
+          "MessageQ_setup: can't find connection to daemon for pid %d\n",
+           getpid())
+
+        return;
+    }
+
+    cmd.cmd = LAD_MESSAGEQ_MSGINIT;
+    cmd.clientId = handle;
+
+    if ((status = LAD_putCommand(&cmd)) != LAD_SUCCESS) {
+        PRINTVERBOSE1(
+          "MessageQ_msgInit: sending LAD command failed, status=%d\n", status)
+        return;
+    }
+
+    if ((status = LAD_getResponse(handle, &rsp)) != LAD_SUCCESS) {
+        PRINTVERBOSE1("MessageQ_msgInit: no LAD response, status=%d\n", status)
+        return;
+    }
+    status = rsp.msgInit.status;
+
+    PRINTVERBOSE2(
+      "MessageQ_msgInit: got LAD response for client %d, status=%d\n",
+      handle, status)
+
+    memcpy(msg, &rsp.msgInit.msg, sizeof(*msg));
+#else
+    msg->reserved0 = 0;  /* We set this to distinguish from NameServerMsg */
+    msg->replyId   = (UInt16)MessageQ_INVALIDMESSAGEQ;
+    msg->msgId     = MessageQ_INVALIDMSGID;
+    msg->dstId     = (UInt16)MessageQ_INVALIDMESSAGEQ;
+    msg->flags     = MessageQ_HEADERVERSION | MessageQ_NORMALPRI;
+    msg->srcProc   = MultiProc_self();
+
+    pthread_mutex_lock(&(MessageQ_module->gate));
     msg->seqNum  = MessageQ_module->seqNum++;
-    pthread_mutex_unlock (&(MessageQ_module->gate));
+    pthread_mutex_unlock(&(MessageQ_module->gate));
+#endif
 }
 
 /*
@@ -1039,9 +1051,7 @@ static Int transportCreateEndpoint(int * fd, UInt16 rprocId, UInt16 queueIndex)
         goto exit;
     }
 
-#ifdef VERBOSE
-    printf ("transportCreateEndpoint: created socket: fd: %d\n", *fd);
-#endif
+    PRINTVERBOSE1("transportCreateEndpoint: created socket: fd: %d\n", *fd)
 
     err = SocketBindAddr(*fd, rprocId, (UInt32)queueIndex);
     if (err < 0) {
@@ -1063,9 +1073,7 @@ static Int transportCloseEndpoint(int fd)
 {
     Int status = MessageQ_S_SUCCESS;
 
-#ifdef VERBOSE
-    printf ("transportCloseEndpoint: closing socket: %d\n", fd);
-#endif
+    PRINTVERBOSE1("transportCloseEndpoint: closing socket: %d\n", fd)
 
     /* Stop communication to this socket:  */
     close(fd);
@@ -1127,12 +1135,9 @@ static Int transportGet(int sock, MessageQ_Msg * retMsg)
          }
     }
 
-#ifdef VERBOSE
-    printf ("transportGet: recvfrom socket: fd: %d\n", sock);
-    printf("\tReceived a msg: byteCount: %d, rpmsg addr: %d, rpmsg proc: %d\n",
-                 byteCount, fromAddr.addr, fromAddr.vproc_id);
-    printf("\tMessage Id: %d, Message size: %d\n", msg->msgId, msg->msgSize);
-#endif
+    PRINTVERBOSE1("transportGet: recvfrom socket: fd: %d\n", sock)
+    PRINTVERBOSE3("\tReceived a msg: byteCount: %d, rpmsg addr: %d, rpmsg proc: %d\n", byteCount, fromAddr.addr, fromAddr.vproc_id)
+    PRINTVERBOSE2("\tMessage Id: %d, Message size: %d\n", msg->msgId, msg->msgSize)
 
     *retMsg = msg;
 
@@ -1160,9 +1165,8 @@ static Int transportPut(MessageQ_Msg msg, UInt16 dstId, UInt16 dstProcId)
      */
     sock = MessageQ_module->sock[dstProcId];
 
-#ifdef VERBOSE
-    printf("Sending msgId: %d via sock: %d\n", msg->msgId, sock);
-#endif
+    PRINTVERBOSE2("Sending msgId: %d via sock: %d\n", msg->msgId, sock)
+
     err = send(sock, msg, msg->msgSize, 0);
     if (err < 0) {
         printf ("transportPut: send failed: %d, %s\n",

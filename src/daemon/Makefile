@@ -34,10 +34,11 @@ include ../../Makefile.inc
 
 all: lad
 
-NameServer.o: NameServer.c
+NameServer_daemon.o: NameServer_daemon.c
+MessageQ_daemon.o: MessageQ_daemon.c
 
-lad: lad.c NameServer.o $(LIB_DEPS)
-	$(GCC) $(CFLAGS) $< -o $@ NameServer.o $(LFLAGS)
+lad: lad.c NameServer_daemon.o MessageQ_daemon.o $(LIB_DEPS)
+	$(GCC) $(CFLAGS) $< -o $@ NameServer_daemon.o MessageQ_daemon.o $(LFLAGS)
 
 clean:
 	@rm -f *.o lad

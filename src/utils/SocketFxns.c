@@ -49,6 +49,11 @@
 /* SysLink Socket Protocol Family */
 #include <net/rpmsg.h>
 
+/* For PRINTVERBOSE* */
+#include <_lad.h>
+
+static Bool verbose = FALSE;
+
 int ConnectSocket(int sock, UInt16 procId, int dst)
 {
     int                   err;
@@ -76,13 +81,10 @@ int ConnectSocket(int sock, UInt16 procId, int dst)
          return (-1);
     }
 
-#ifdef VERBOSE
-    printf("Connected over sock: %d\n\tdst vproc_id: %d, dst addr: %d\n",
-              sock, dstAddr.vproc_id, dstAddr.addr);
-
-    printf("\tsrc vproc_id: %d, src addr: %d\n",
-              srcAddr.vproc_id, srcAddr.addr);
-#endif
+    PRINTVERBOSE3("Connected over sock: %d\n\tdst vproc_id: %d, dst addr: %d\n",
+                  sock, dstAddr.vproc_id, dstAddr.addr)
+    PRINTVERBOSE2("\tsrc vproc_id: %d, src addr: %d\n",
+                  srcAddr.vproc_id, srcAddr.addr)
 
     return(0);
 }
@@ -103,21 +105,19 @@ int SocketBindAddr(int fd, UInt16 rprocId, UInt32 localAddr)
     len = sizeof(struct sockaddr_rpmsg);
     err = bind(fd, (struct sockaddr *)&srcAddr, len);
     if (err >= 0) {
-#ifdef VERBOSE
-        printf("socket_bind_addr: bound sock: %d\n\tto dst vproc_id: %d, "
-            "src addr: %d\n", fd, srcAddr.vproc_id, srcAddr.addr);
-#endif
+        PRINTVERBOSE3("socket_bind_addr: bound sock: %d\n\tto dst "
+                      "vproc_id: %d, src addr: %d\n",
+                      fd, srcAddr.vproc_id, srcAddr.addr)
+
         /* let's see what local address we got */
         err = getsockname(fd, (struct sockaddr *)&srcAddr, &len);
         if (err < 0) {
-           printf("getsockname failed: %s (%d)\n", strerror(errno), errno);
+            printf("getsockname failed: %s (%d)\n", strerror(errno), errno);
         }
-#ifdef VERBOSE
         else {
-            printf("\tsrc vproc_id: %d, src addr: %d\n",
-                 srcAddr.vproc_id, srcAddr.addr);
+            PRINTVERBOSE2("\tsrc vproc_id: %d, src addr: %d\n",
+                          srcAddr.vproc_id, srcAddr.addr)
         }
-#endif
     }
 
     return (err);

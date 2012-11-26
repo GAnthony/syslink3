@@ -32,7 +32,7 @@
 
 include	../../Makefile.inc
 
-OBJ	= SysLink.o MessageQ.o
+OBJ	= SysLink.o NameServer.o MessageQ.o
 
 libipc.a: $(OBJ)
 	$(AR) -rcs libipc.a $(OBJ)
