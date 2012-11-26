@@ -342,10 +342,8 @@ static void *listener_cb(void *arg)
                 NameServer_module->recvSock[procId] == INVALIDSOCKET) {
                 continue;
             }
-            sock = NameServer_module->recvSock[procId];
-            if (FD_ISSET(sock, &rfds)) {
-                LOG1("NameServer: Listener got NameServer message "
-                     "from sock: %d!\n", sock);
+            if (FD_ISSET(NameServer_module->recvSock[procId], &rfds)) {
+                LOG0("NameServer: Listener got NameServer message!\n")
                 /* Get NameServer message and process: */
                 memset(&fromAddr, 0, sizeof(fromAddr));
                 len = sizeof(fromAddr);
@@ -396,11 +394,15 @@ Int NameServer_setup(Void)
 
     pthread_mutex_lock(&NameServer_module->modGate);
 
-    if (NameServer_module->refCount != 0) {
+    LOG1("NameServer_setup: entered, refCount=%d\n", NameServer_module->refCount)
+
+    NameServer_module->refCount++;
+
+    if (NameServer_module->refCount > 1) {
+        LOG0("NameServer_setup: already setup\n")
         status = NameServer_S_ALREADYSETUP;
         goto exit;
     }
-    NameServer_module->refCount++;
 
     numProcs = MultiProc_getNumProcessors();
 
@@ -489,6 +491,8 @@ Int NameServer_setup(Void)
     }
 
 exit:
+    LOG1("NameServer_setup: exiting, refCount=%d\n", NameServer_module->refCount)
+
     pthread_mutex_unlock(&NameServer_module->modGate);
 
     return (status);
@@ -506,11 +510,15 @@ Int NameServer_destroy(void)
 
     pthread_mutex_lock(&NameServer_module->modGate);
 
-    if (NameServer_module->refCount == 0) {
-        LOG0("NameServer_destroy(): bad refCount: 0 (should be > 0)\n")
-        status = NameServer_E_FAIL;
+    LOG1("NameServer_destroy: entered, refCount=%d\n", NameServer_module->refCount)
 
-       goto exit;
+    NameServer_module->refCount--;
+
+    if (NameServer_module->refCount > 0) {
+        LOG1("NameServer_destroy(): refCount(%d) > 0, exiting\n", NameServer_module->refCount)
+        status = NameServer_S_SUCCESS;
+
+        goto exit;
     }
 
     for (procId = 0; procId < numProcs; procId++) {
@@ -548,9 +556,9 @@ Int NameServer_destroy(void)
     close(NameServer_module->unblockFd);
     close(NameServer_module->waitFd);
 
-    NameServer_module->refCount--;
-
 exit:
+    LOG1("NameServer_destroy: exiting, refCount=%d\n", NameServer_module->refCount)
+
     pthread_mutex_unlock(&NameServer_module->modGate);
 
     return (status);
@@ -1194,4 +1202,3 @@ Int NameServer_getLocalUInt32(NameServer_Handle handle, String name, Ptr value)
 #if defined (__cplusplus)
 }
 #endif /* defined (__cplusplus) */
-

@@ -55,16 +55,17 @@
 extern "C" {
 #endif
 
+#include <_lad.h>
 
 /* LAD return codes */
 typedef enum {
     LAD_SUCCESS = 0,       /**< success */
-    LAD_FAILURE,      /**< general failure */
+    LAD_FAILURE,           /**< general failure */
     LAD_INVALIDARG,        /**< invalid argument */
     LAD_ACCESSDENIED,      /**< the request was denied */
     LAD_IOFAILURE,         /**< communication failure */
     LAD_NOTCONNECTED,      /**< not connected to LAD yet */
-    LAD_INVALIDVERSION          /**< unsupported communication protocol */
+    LAD_INVALIDVERSION     /**< unsupported communication protocol */
 } LAD_Status;
 
 typedef UInt LAD_ClientHandle;  /**< handle for communicating with LAD  */
@@ -118,6 +119,9 @@ extern LAD_Status LAD_connect(LAD_ClientHandle * handle);
  */
 extern LAD_Status LAD_disconnect(LAD_ClientHandle handle);
 
+extern LAD_ClientHandle LAD_findHandle(Void);
+extern LAD_Status LAD_getResponse(LAD_ClientHandle handle, union LAD_ResponseObj *rsp);
+extern LAD_Status LAD_putCommand(struct LAD_CommandObj *cmd);
 
 #ifdef __cplusplus
 }

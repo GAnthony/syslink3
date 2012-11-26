@@ -40,9 +40,6 @@
 #ifndef MESSAGEQ_H_0xded2
 #define MESSAGEQ_H_0xded2
 
-/* Standard headers */
-#include <_MessageQ.h>
-
 /* Utilities headers */
 #include <ti/ipc/NameServer.h>
 
@@ -88,17 +85,9 @@ extern "C" {
  */
 typedef struct MessageQ_Config_tag {
     Bool   traceFlag;
-    /*!< Number of heapIds in the system
+    /*!< Trace flag
      *  This flag allows the configuration of the default module trace
      *  settings.
-     */
-    UInt16 numHeaps;
-    /*!< Number of heapIds in the system
-     * This allows MessageQ to pre-allocate the heaps table.
-     * The heaps table is used when registering heaps.
-     * The default is 1 since generally all systems need at least one heap.
-     *  There is no default heap, so unless the system is only using
-     *  staticMsgInit, the application must register a heap.
      */
     UInt maxRuntimeEntries;
     /*!< Maximum number of MessageQs that can be dynamically created */
@@ -166,6 +155,14 @@ Int MessageQ_attach (UInt16 remoteProcId, Ptr sharedAddr);
 
 /* Calls the SetupProxy function to detach the MessageQ transports. */
 Int MessageQ_detach (UInt16 remoteProcId);
+
+NameServer_Handle MessageQ_getNameServerHandle(void);
+
+Void MessageQ_setQueueOwner(MessageQ_Handle handle, Int pid);
+
+Void MessageQ_cleanupOwner(Int pid);
+
+Void MessageQ_msgInit(MessageQ_Msg msg);
 
 #if defined (__cplusplus)
 }

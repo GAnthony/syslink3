@@ -45,6 +45,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <ti/ipc/MessageQ.h>
+#include <_MessageQ.h>
 #include <ti/ipc/NameServer.h>
 #include <_NameServer.h>
 
@@ -76,11 +78,14 @@ static Void doDisconnect(Int clientId);
 struct LAD_CommandObj cmd;
 union LAD_ResponseObj rsp;
 
+
+
 /*
  *  ======== main ========
  */
 int main(int argc, char * argv[])
 {
+    MessageQ_Handle handle;
     UInt16 *procIdPtr;
     Int statusIO;
     Int clientId;
@@ -360,13 +365,88 @@ opencommandFIFO:
             break;
 
           case LAD_NAMESERVER_REMOVEENTRY:
-            LOG2("LAD_NAMESERVER_REMOVEENTRY: calling NameServer_removeEntry(%p, %p)...\n", cmd.args.remove.handle, cmd.args.removeEntry.entryPtr)
+            LOG2("LAD_NAMESERVER_REMOVEENTRY: calling NameServer_removeEntry(%p, %p)...\n", cmd.args.removeEntry.handle, cmd.args.removeEntry.entryPtr)
 
             rsp.status = NameServer_removeEntry(
                 cmd.args.removeEntry.handle,
                 cmd.args.removeEntry.entryPtr);
 
             LOG1("    status = %d\n", rsp.status)
+            LOG0("DONE\n")
+
+            break;
+
+          case LAD_MESSAGEQ_GETCONFIG:
+            LOG0("LAD_MESSAGEQ_GETCONFIG: calling MessageQ_getConfig()...\n")
+
+            MessageQ_getConfig(&rsp.messageQGetConfig.cfg);
+            rsp.messageQGetConfig.status = 0;
+
+            LOG1("    status = %d\n", rsp.messageQGetConfig.status)
+            LOG0("DONE\n")
+
+            break;
+
+          case LAD_MESSAGEQ_SETUP:
+            LOG0("LAD_MESSAGEQ_SETUP: calling MessageQ_setup()...\n")
+
+            rsp.setup.status = MessageQ_setup(&cmd.args.messageQSetup.cfg);
+            rsp.setup.nameServerHandle = MessageQ_getNameServerHandle();
+
+            LOG1("    status = %d\n", rsp.setup.status)
+            LOG0("DONE\n")
+
+            break;
+
+          case LAD_MESSAGEQ_DESTROY:
+            LOG0("LAD_MESSAGEQ_DESTROY: calling MessageQ_destroy()...\n")
+
+            rsp.status = MessageQ_destroy();
+
+            LOG1("    status = %d\n", rsp.status)
+            LOG0("DONE\n")
+
+            break;
+
+          case LAD_MESSAGEQ_CREATE:
+            LOG2("LAD_MESSAGEQ_CREATE: calling MessageQ_create(%p, %p)...\n", cmd.args.messageQCreate.name, &cmd.args.messageQCreate.params)
+
+            handle = MessageQ_create(cmd.args.messageQCreate.name,
+                &cmd.args.messageQCreate.params);
+            rsp.messageQCreate.serverHandle = handle;
+
+            if (handle) {
+                rsp.messageQCreate.queueId = MessageQ_getQueueId(handle);
+                MessageQ_setQueueOwner(handle, clientPID[clientId]);
+                rsp.messageQCreate.status = 0;
+            }
+            else {
+                rsp.messageQCreate.status = -1;
+            }
+
+            LOG1("    status = %d\n", rsp.messageQCreate.status)
+            LOG0("DONE\n")
+
+            break;
+
+          case LAD_MESSAGEQ_DELETE:
+            LOG1("LAD_MESSAGEQ_DELETE: calling MessageQ_delete(%p)...\n", cmd.args.messageQDelete.serverHandle)
+
+            rsp.messageQDelete.status =
+                MessageQ_delete((MessageQ_Handle *)&cmd.args.messageQDelete.serverHandle);
+
+            LOG1("    status = %d\n", rsp.messageQDelete.status)
+            LOG0("DONE\n")
+
+            break;
+
+          case LAD_MESSAGEQ_MSGINIT:
+            LOG1("LAD_MESSAGEQ_MSGINIT: calling MessageQ_msgInit(%p)...\n", &rsp.msgInit.msg);
+
+            MessageQ_msgInit(&rsp.msgInit.msg);
+            rsp.msgInit.status = 0;
+
+            LOG1("    status = %d\n", rsp.msgInit.status)
             LOG0("DONE\n")
 
             break;
@@ -396,6 +476,12 @@ opencommandFIFO:
           case LAD_NAMESERVER_GETUINT32:
           case LAD_NAMESERVER_REMOVE:
           case LAD_NAMESERVER_REMOVEENTRY:
+          case LAD_MESSAGEQ_GETCONFIG:
+          case LAD_MESSAGEQ_SETUP:
+          case LAD_MESSAGEQ_DESTROY:
+          case LAD_MESSAGEQ_CREATE:
+          case LAD_MESSAGEQ_DELETE:
+          case LAD_MESSAGEQ_MSGINIT:
             LOG0("Sending response...\n");
 
             fwrite(&rsp, LAD_RESPONSELENGTH, 1, responseFIFOFilePtr[clientId]);
@@ -471,6 +557,9 @@ static Void cleanupDepartedClients(Void)
                 /* will always need to do the disconnect... */
                 LOG0("\nDoing DISCONNECT on behalf of client...")
                 doDisconnect(i);
+
+                MessageQ_cleanupOwner(clientPID[i]);
+//                NameServer_cleanupOwner(clientPID[i]);
 
                 LOG0("DONE\n")
             }

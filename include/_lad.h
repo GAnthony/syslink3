@@ -41,6 +41,8 @@ extern "C" {
 #endif
 
 #include "_MultiProc.h"
+#include <ti/ipc/MessageQ.h>
+#include <_MessageQ.h>
 #include <ti/ipc/NameServer.h>
 
 
@@ -68,6 +70,9 @@ extern FILE *logPtr;
 #define PRINTVERBOSE2(a, b, c)  \
     if (verbose == TRUE) {  printf(a, b, c); }
 
+#define PRINTVERBOSE3(a, b, c, d)  \
+    if (verbose == TRUE) {  printf(a, b, c, d); }
+
 
 /* LAD commmand FIFO strings: */
 #define LAD_COMMANDFIFO         "/tmp/LAD/LADCMDS"
@@ -86,6 +91,8 @@ extern FILE *logPtr;
 #define LAD_COMMANDLENGTH       sizeof(struct LAD_CommandObj)
 #define LAD_RESPONSELENGTH      sizeof(union LAD_ResponseObj)
 
+#define LAD_MESSAGEQCREATEMAXNAMELEN 32
+
 
 typedef enum {
     LAD_CONNECT = 0,
@@ -99,6 +106,12 @@ typedef enum {
     LAD_NAMESERVER_GETUINT32,
     LAD_NAMESERVER_REMOVE,
     LAD_NAMESERVER_REMOVEENTRY,
+    LAD_MESSAGEQ_GETCONFIG,
+    LAD_MESSAGEQ_SETUP,
+    LAD_MESSAGEQ_DESTROY,
+    LAD_MESSAGEQ_CREATE,
+    LAD_MESSAGEQ_DELETE,
+    LAD_MESSAGEQ_MSGINIT,
     LAD_EXIT
 } _LAD_Command;
 
@@ -106,36 +119,46 @@ struct LAD_CommandObj {
     Int cmd;
     Int clientId;
     union {
-       struct {
-           Int pid;
-           Char name[LAD_MAXLENGTHFIFONAME];
-           Char protocol[LAD_MAXLENGTHPROTOVERS];
-       } connect;
-       struct {
-           Char name[NameServer_Params_MAXNAMELEN];
-           NameServer_Params params;
-       } create;
-       struct {
-           NameServer_Handle handle;
-       } delete;
-       struct {
-           NameServer_Handle handle;
-           Char name[NameServer_Params_MAXNAMELEN];
-           UInt32 val;
-       } addUInt32;
-       struct {
-           NameServer_Handle handle;
-           Char name[NameServer_Params_MAXNAMELEN];
-           UInt16 procId[MultiProc_MAXPROCESSORS];
-       } getUInt32;
-       struct {
-           NameServer_Handle handle;
-           Char name[NameServer_Params_MAXNAMELEN];
-       } remove;
-       struct {
-           NameServer_Handle handle;
-           Ptr entryPtr;
-       } removeEntry;
+        struct {
+            Int pid;
+            Char name[LAD_MAXLENGTHFIFONAME];
+            Char protocol[LAD_MAXLENGTHPROTOVERS];
+        } connect;
+        struct {
+            Char name[NameServer_Params_MAXNAMELEN];
+            NameServer_Params params;
+        } create;
+        struct {
+            NameServer_Handle handle;
+        } delete;
+        struct {
+            NameServer_Handle handle;
+            Char name[NameServer_Params_MAXNAMELEN];
+            UInt32 val;
+        } addUInt32;
+        struct {
+            NameServer_Handle handle;
+            Char name[NameServer_Params_MAXNAMELEN];
+            UInt16 procId[MultiProc_MAXPROCESSORS];
+        } getUInt32;
+        struct {
+            NameServer_Handle handle;
+            Char name[NameServer_Params_MAXNAMELEN];
+        } remove;
+        struct {
+            NameServer_Handle handle;
+            Ptr entryPtr;
+        } removeEntry;
+        struct {
+            MessageQ_Config cfg;
+        } messageQSetup;
+        struct {
+            Char name[LAD_MESSAGEQCREATEMAXNAMELEN];
+            MessageQ_Params params;
+        } messageQCreate;
+        struct {
+            Void *serverHandle;
+        } messageQDelete;
     } args;
 };
 
@@ -152,6 +175,26 @@ union LAD_ResponseObj {
        Int status;
        NameServer_Handle handle;
     } delete;
+    struct {
+       Int status;
+       NameServer_Handle nameServerHandle;
+    } setup;
+    struct {
+       Int status;
+       Int queueId;
+       Void *serverHandle;
+    } messageQCreate;
+    struct {
+       Int status;
+    } messageQDelete;
+    struct {
+       Int status;
+       MessageQ_MsgHeader msg;
+    } msgInit;
+    struct {
+       Int status;
+       MessageQ_Config cfg;
+    } messageQGetConfig;
     NameServer_Params params;
     NameServer_Handle handle;
     Ptr entryPtr;
